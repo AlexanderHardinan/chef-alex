@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import BackToDashboard from "@/components/back-to-dashboard";
 import LiquidGlassButton from "@/components/liquid-glass-button";
 import { toast } from "sonner";
@@ -58,10 +57,15 @@ function normalizeTab(v: string | null): TabKey {
   return "sent";
 }
 
+function setUrlTab(tab: TabKey) {
+  // client-only: safe
+  const url = new URL(window.location.href);
+  url.searchParams.set("tab", tab);
+  window.history.replaceState({}, "", url.toString());
+}
+
 export default function ReportsPage() {
   const supabase = supabaseBrowser();
-  const router = useRouter();
-  const sp = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("sent");
@@ -91,7 +95,9 @@ export default function ReportsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const initialTab = normalizeTab(sp.get("tab"));
+        // ✅ Read tab from URL safely on client
+        const tabParam = new URLSearchParams(window.location.search).get("tab");
+        const initialTab = normalizeTab(tabParam);
         setTab(initialTab);
 
         const { data: u } = await supabase.auth.getUser();
@@ -130,7 +136,8 @@ export default function ReportsPage() {
     const uid = await getUid();
     if (!uid) return;
 
-    router.replace(`/reports?tab=${nextTab}`);
+    // ✅ Update URL without useSearchParams/useRouter
+    setUrlTab(nextTab);
 
     const { data, error } = await supabase
       .from("emails")
@@ -392,7 +399,6 @@ export default function ReportsPage() {
           </div>
         </section>
 
-        {/* Preview Modal */}
         {previewOpen && selectedEmail ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="w-full max-w-6xl rounded-3xl border border-black/10 bg-white/85 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
