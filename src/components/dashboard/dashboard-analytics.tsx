@@ -1,3 +1,4 @@
+// src/components/dashboard/dashboard-analytics.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -46,6 +47,21 @@ function buildLastNDays(n: number) {
   return arr;
 }
 
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={`transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
+    >
+      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function DashboardAnalytics() {
   const supabase = supabaseBrowser();
 
@@ -56,6 +72,11 @@ export default function DashboardAnalytics() {
   const [recentSent, setRecentSent] = useState<Array<{ id: string; subject: string | null; sent_at: string | null }>>(
     []
   );
+
+  // ✅ Recent Sent UI states
+  const [recentOpen, setRecentOpen] = useState(false); // default collapsed
+  const [recentPage, setRecentPage] = useState(1);
+  const RECENT_PAGE_SIZE = 5;
 
   async function refresh() {
     try {
@@ -121,16 +142,22 @@ export default function DashboardAnalytics() {
 
       setSentSeries(days.map((d) => ({ day: d.slice(5), sent: map[d] ?? 0 })));
 
+      // ✅ Pull a bit more so pagination has meaning
       const recent = await supabase
         .from("emails")
         .select("id,subject,sent_at")
         .eq("owner_uuid", uid)
         .eq("status", "sent")
         .order("sent_at", { ascending: false })
-        .limit(6);
+        .limit(25);
 
       if (recent.error) throw new Error(recent.error.message);
-      setRecentSent((recent.data ?? []) as any);
+
+      const rows = (recent.data ?? []) as any[];
+      setRecentSent(rows);
+
+      // ✅ Reset to page 1 whenever we refresh & data changes
+      setRecentPage(1);
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to load analytics.");
     } finally {
@@ -146,6 +173,23 @@ export default function DashboardAnalytics() {
   }, []);
 
   const totalSent14 = useMemo(() => sentSeries.reduce((a, b) => a + (b.sent || 0), 0), [sentSeries]);
+
+  // ✅ Pagination for Recent Sent
+  const recentTotal = recentSent.length;
+  const recentTotalPages = Math.max(1, Math.ceil(recentTotal / RECENT_PAGE_SIZE));
+  const recentPageSafe = Math.min(Math.max(1, recentPage), recentTotalPages);
+
+  const recentSlice = useMemo(() => {
+    const start = (recentPageSafe - 1) * RECENT_PAGE_SIZE;
+    return recentSent.slice(start, start + RECENT_PAGE_SIZE);
+  }, [recentSent, recentPageSafe]);
+
+  function recentPrev() {
+    setRecentPage((p) => Math.max(1, p - 1));
+  }
+  function recentNext() {
+    setRecentPage((p) => Math.min(recentTotalPages, p + 1));
+  }
 
   return (
     <div className="mt-6 space-y-4">
@@ -172,7 +216,8 @@ export default function DashboardAnalytics() {
             <div className="min-w-0">
               <div className="text-xl font-semibold tracking-tight">Performance</div>
               <div className="mt-1 text-sm text-black/70">
-                Last 14 days • Total sent: <span className="font-semibold text-black">{loading ? "—" : totalSent14}</span>
+                Last 14 days • Total sent:{" "}
+                <span className="font-semibold text-black">{loading ? "—" : totalSent14}</span>
               </div>
             </div>
 
@@ -214,39 +259,94 @@ export default function DashboardAnalytics() {
         </WaterCard>
       </div>
 
-      {/* Recent Activity */}
+      {/* ✅ Recent Activity (Foldable + Pagination 5/page) */}
       <WaterCard hover>
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div className="min-w-0">
-            <div className="text-xl font-semibold tracking-tight">Recent Sent</div>
-            <div className="mt-1 text-sm text-black/70">Latest sent emails</div>
+        <button
+          type="button"
+          onClick={() => setRecentOpen((v) => !v)}
+          className="w-full text-left"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xl font-semibold tracking-tight">Recent Sent</div>
+              <div className="mt-1 text-sm text-black/70">
+                Latest sent emails • Total loaded:{" "}
+                <span className="font-semibold text-black">{loading ? "—" : recentTotal}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-black/60">Fold</span>
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/10 bg-white/60">
+                <Chevron open={recentOpen} />
+              </span>
+            </div>
           </div>
+        </button>
 
-          <LiquidGlassButton variant="ghost" onClick={() => (window.location.href = "/reports?tab=sent")}>
-            Open Reports
-          </LiquidGlassButton>
-        </div>
+        {recentOpen ? (
+          <div className="mt-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div className="text-xs text-black/60">
+                Page <span className="font-semibold text-black">{recentPageSafe}</span> of{" "}
+                <span className="font-semibold text-black">{recentTotalPages}</span> • Showing{" "}
+                <span className="font-semibold text-black">{RECENT_PAGE_SIZE}</span> per page
+              </div>
 
-        <div className="mt-4 space-y-2">
-          {loading ? (
-            <div className="text-sm text-black/60">Loading…</div>
-          ) : recentSent.length === 0 ? (
-            <div className="text-sm text-black/60">No sent emails yet.</div>
-          ) : (
-            recentSent.map((r) => (
-              <div
-                key={r.id}
-                className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 transition hover:bg-white"
-              >
-                <div className="font-semibold truncate">{r.subject || "(No subject)"}</div>
-                <div className="mt-1 text-xs text-black/60 truncate">ID: {r.id}</div>
-                <div className="mt-1 text-xs text-black/60">
-                  Sent: {r.sent_at ? new Date(r.sent_at).toLocaleString() : "-"}
+              <div className="flex flex-wrap gap-2">
+                <LiquidGlassButton variant="ghost" onClick={() => (window.location.href = "/reports?tab=sent")}>
+                  Open Reports
+                </LiquidGlassButton>
+                <LiquidGlassButton variant="ghost" onClick={refresh}>
+                  Refresh
+                </LiquidGlassButton>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {loading ? (
+                <div className="text-sm text-black/60">Loading…</div>
+              ) : recentTotal === 0 ? (
+                <div className="text-sm text-black/60">No sent emails yet.</div>
+              ) : (
+                recentSlice.map((r) => (
+                  <div
+                    key={r.id}
+                    className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 transition hover:bg-white"
+                  >
+                    <div className="font-semibold truncate">{r.subject || "(No subject)"}</div>
+                    <div className="mt-1 text-xs text-black/60 truncate">ID: {r.id}</div>
+                    <div className="mt-1 text-xs text-black/60">
+                      Sent: {r.sent_at ? new Date(r.sent_at).toLocaleString() : "-"}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {recentTotal > 0 ? (
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <div className="text-xs text-black/60">
+                  Showing {(recentPageSafe - 1) * RECENT_PAGE_SIZE + 1}–
+                  {Math.min(recentPageSafe * RECENT_PAGE_SIZE, recentTotal)} of {recentTotal}
+                </div>
+
+                <div className="flex gap-2">
+                  <LiquidGlassButton variant="ghost" onClick={recentPrev} disabled={recentPageSafe <= 1}>
+                    Prev
+                  </LiquidGlassButton>
+                  <LiquidGlassButton
+                    variant="ghost"
+                    onClick={recentNext}
+                    disabled={recentPageSafe >= recentTotalPages}
+                  >
+                    Next
+                  </LiquidGlassButton>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ) : null}
+          </div>
+        ) : null}
       </WaterCard>
     </div>
   );
