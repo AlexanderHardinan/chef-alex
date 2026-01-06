@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import BackToDashboard from "@/components/back-to-dashboard";
 import LiquidGlassButton from "@/components/liquid-glass-button";
+import WaterCard from "@/components/water-card";
 import { toast } from "sonner";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
@@ -58,7 +59,6 @@ function normalizeTab(v: string | null): TabKey {
 }
 
 function setUrlTab(tab: TabKey) {
-  // client-only: safe
   const url = new URL(window.location.href);
   url.searchParams.set("tab", tab);
   window.history.replaceState({}, "", url.toString());
@@ -95,7 +95,6 @@ export default function ReportsPage() {
   useEffect(() => {
     (async () => {
       try {
-        // ✅ Read tab from URL safely on client
         const tabParam = new URLSearchParams(window.location.search).get("tab");
         const initialTab = normalizeTab(tabParam);
         setTab(initialTab);
@@ -136,7 +135,6 @@ export default function ReportsPage() {
     const uid = await getUid();
     if (!uid) return;
 
-    // ✅ Update URL without useSearchParams/useRouter
     setUrlTab(nextTab);
 
     const { data, error } = await supabase
@@ -288,6 +286,9 @@ export default function ReportsPage() {
 
   if (loading) return null;
 
+  const title =
+    tab === "sent" ? "Sent Emails" : tab === "draft" ? "Draft Emails" : "Deleted Emails";
+
   const selectedRecipients = selectedEmail ? recipientsByEmailId[selectedEmail.id] ?? [] : [];
 
   return (
@@ -295,6 +296,7 @@ export default function ReportsPage() {
       <div className="mx-auto max-w-5xl">
         <BackToDashboard />
 
+        {/* Header */}
         <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Reports</h1>
@@ -314,56 +316,76 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <section className="mt-5 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
+        {/* Search + List */}
+        <WaterCard className="mt-5" radius="xl">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="text-lg font-semibold">
-              {tab === "sent" ? "Sent Emails" : tab === "draft" ? "Draft Emails" : "Deleted Emails"}
+            <div className="min-w-0">
+              <div className="text-lg font-semibold">{title}</div>
+              <div className="mt-1 text-sm text-black/70">
+                Click an item to preview. Manage status with actions.
+              </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search subject, ID, or recipient…"
                 className="w-full md:w-[360px] rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
               />
-              <LiquidGlassButton variant="ghost" onClick={() => loadEmails(tab)}>
+              <LiquidGlassButton variant="ghost" onClick={() => loadEmails(tab)} className="whitespace-nowrap">
                 Refresh
               </LiquidGlassButton>
             </div>
           </div>
 
-          <div className="mt-4 space-y-2">
+          <div className="mt-5 space-y-2">
             {filtered.length === 0 ? (
-              <div className="text-sm text-black/60">No items.</div>
+              <div className="rounded-2xl border border-black/10 bg-white/60 px-4 py-5 text-sm text-black/60">
+                No items found.
+              </div>
             ) : (
               filtered.map((e) => {
                 const recips = recipientsByEmailId[e.id] ?? [];
+                const metaLeft =
+                  tab === "sent" ? `Sent: ${fmtDate(e.sent_at)}` : `Created: ${fmtDate(e.created_at)}`;
+
+                const recipSummary =
+                  tab === "sent"
+                    ? recips.length === 0
+                      ? "Recipients: —"
+                      : `Recipients: ${recips[0]}${recips.length > 1 ? ` +${recips.length - 1}` : ""}`
+                    : null;
+
                 return (
                   <div
                     key={e.id}
-                    className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white transition"
+                    className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 transition hover:bg-white"
                   >
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                      <button onClick={() => openPreview(e)} className="text-left min-w-0" type="button">
-                        <div className="font-semibold truncate">{e.subject || "(No subject)"}</div>
-                        <div className="text-xs text-black/60 truncate">ID: {e.id}</div>
-
-                        {tab === "sent" ? (
-                          <div className="mt-1 text-xs text-black/60 truncate">
-                            Recipients:{" "}
-                            {recips.length === 0
-                              ? "—"
-                              : `${recips[0]}${recips.length > 1 ? ` +${recips.length - 1}` : ""}`}
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate">{e.subject || "(No subject)"}</div>
+                            <div className="mt-0.5 text-xs text-black/60 truncate">ID: {e.id}</div>
                           </div>
-                        ) : null}
-                      </button>
 
-                      <div className="flex items-center gap-3">
-                        <div className="text-xs text-black/60">
-                          {tab === "sent" ? `Sent: ${fmtDate(e.sent_at)}` : `Created: ${fmtDate(e.created_at)}`}
+                          <button
+                            type="button"
+                            onClick={() => openPreview(e)}
+                            className="text-xs underline text-black/70 hover:text-black whitespace-nowrap"
+                          >
+                            Open
+                          </button>
                         </div>
 
+                        <div className="mt-2 flex flex-col gap-1 text-xs text-black/60">
+                          <div>{metaLeft}</div>
+                          {recipSummary ? <div className="truncate">{recipSummary}</div> : null}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
                         {tab === "deleted" ? (
                           <>
                             <button
@@ -397,116 +419,125 @@ export default function ReportsPage() {
               })
             )}
           </div>
-        </section>
+        </WaterCard>
 
+        {/* Preview Modal */}
         {previewOpen && selectedEmail ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-6xl rounded-3xl border border-black/10 bg-white/85 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-              <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
-                <div className="min-w-0">
-                  <div className="text-lg font-semibold truncate">{selectedEmail.subject || "(No subject)"}</div>
-                  <div className="text-xs text-black/60 truncate">Email ID: {selectedEmail.id}</div>
-                </div>
-
-                <div className="flex gap-2">
-                  {tab === "deleted" ? (
-                    <>
-                      <LiquidGlassButton variant="ghost" onClick={() => restoreEmail(selectedEmail.id)}>
-                        Restore
-                      </LiquidGlassButton>
-                      <LiquidGlassButton variant="ghost" onClick={() => hardDelete(selectedEmail.id)}>
-                        Delete Permanently
-                      </LiquidGlassButton>
-                    </>
-                  ) : (
-                    <LiquidGlassButton variant="ghost" onClick={() => softDelete(selectedEmail.id)}>
-                      Delete
-                    </LiquidGlassButton>
-                  )}
-
-                  <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
-                    Close
-                  </LiquidGlassButton>
-                </div>
-              </div>
-
-              <div className="p-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-black/10 bg-white/70 p-4 lg:col-span-1">
-                  <div className="text-sm font-semibold">Details</div>
-
-                  <div className="mt-2 text-sm text-black/70 space-y-1">
-                    <div>
-                      <span className="text-black/50">Status:</span> {selectedEmail.status}
+            <div className="w-full max-w-6xl">
+              <WaterCard radius="xl" className="shadow-[0_18px_60px_rgba(0,0,0,0.22)]" padded={false}>
+                <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
+                  <div className="min-w-0">
+                    <div className="text-lg font-semibold truncate">
+                      {selectedEmail.subject || "(No subject)"}
                     </div>
-                    <div>
-                      <span className="text-black/50">Created:</span> {fmtDate(selectedEmail.created_at)}
-                    </div>
-                    <div>
-                      <span className="text-black/50">Sent:</span> {fmtDate(selectedEmail.sent_at)}
-                    </div>
+                    <div className="text-xs text-black/60 truncate">Email ID: {selectedEmail.id}</div>
                   </div>
 
-                  <div className="mt-5 text-sm font-semibold">Recipients</div>
-                  {tab !== "sent" ? (
-                    <div className="mt-2 text-sm text-black/60">Recipients are available for Sent emails.</div>
-                  ) : selectedRecipients.length === 0 ? (
-                    <div className="mt-2 text-sm text-black/60">No recipients recorded in logs.</div>
-                  ) : (
-                    <div className="mt-2 rounded-2xl border border-black/10 bg-white p-3 max-h-[22vh] overflow-auto">
-                      <div className="text-xs text-black/60 mb-2">
-                        Total: <span className="font-medium text-black">{selectedRecipients.length}</span>
+                  <div className="flex gap-2">
+                    {tab === "deleted" ? (
+                      <>
+                        <LiquidGlassButton variant="ghost" onClick={() => restoreEmail(selectedEmail.id)}>
+                          Restore
+                        </LiquidGlassButton>
+                        <LiquidGlassButton variant="ghost" onClick={() => hardDelete(selectedEmail.id)}>
+                          Delete Permanently
+                        </LiquidGlassButton>
+                      </>
+                    ) : (
+                      <LiquidGlassButton variant="ghost" onClick={() => softDelete(selectedEmail.id)}>
+                        Delete
+                      </LiquidGlassButton>
+                    )}
+
+                    <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
+                      Close
+                    </LiquidGlassButton>
+                  </div>
+                </div>
+
+                <div className="p-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  {/* Left panel */}
+                  <WaterCard className="lg:col-span-1" radius="xl">
+                    <div className="text-sm font-semibold">Details</div>
+
+                    <div className="mt-2 text-sm text-black/70 space-y-1">
+                      <div>
+                        <span className="text-black/50">Status:</span> {selectedEmail.status}
                       </div>
-                      <ul className="text-sm text-black/80 space-y-1">
-                        {selectedRecipients.map((e) => (
-                          <li key={e}>{e}</li>
-                        ))}
-                      </ul>
+                      <div>
+                        <span className="text-black/50">Created:</span> {fmtDate(selectedEmail.created_at)}
+                      </div>
+                      <div>
+                        <span className="text-black/50">Sent:</span> {fmtDate(selectedEmail.sent_at)}
+                      </div>
                     </div>
-                  )}
 
-                  <div className="mt-5 text-sm font-semibold">Attachments</div>
-                  {attLoading ? (
-                    <div className="mt-2 text-sm text-black/60">Loading…</div>
-                  ) : attachments.length === 0 ? (
-                    <div className="mt-2 text-sm text-black/60">No attachments.</div>
-                  ) : (
-                    <div className="mt-2 space-y-2">
-                      {attachments.map((a) => (
-                        <div
-                          key={a.id}
-                          className="flex items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium truncate">
-                              {a.file_name || a.storage_path.split("/").pop()}
-                            </div>
-                            <div className="text-xs text-black/50 truncate">{a.storage_bucket}</div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => downloadAttachment(a)}
-                            className="text-xs underline text-black/70 hover:text-black"
-                          >
-                            Download
-                          </button>
+                    <div className="mt-5 text-sm font-semibold">Recipients</div>
+                    {tab !== "sent" ? (
+                      <div className="mt-2 text-sm text-black/60">Recipients are available for Sent emails.</div>
+                    ) : selectedRecipients.length === 0 ? (
+                      <div className="mt-2 text-sm text-black/60">No recipients recorded in logs.</div>
+                    ) : (
+                      <div className="mt-2 rounded-2xl border border-black/10 bg-white/70 p-3 max-h-[22vh] overflow-auto">
+                        <div className="text-xs text-black/60 mb-2">
+                          Total: <span className="font-medium text-black">{selectedRecipients.length}</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <ul className="text-sm text-black/80 space-y-1">
+                          {selectedRecipients.map((e) => (
+                            <li key={e}>{e}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                <div className="rounded-2xl border border-black/10 bg-white lg:col-span-2">
-                  <iframe
-                    title="Email preview"
-                    className="h-[75vh] w-full rounded-2xl"
-                    sandbox=""
-                    srcDoc={
-                      selectedEmail.rendered_html ||
-                      "<div style='padding:24px;font-family:system-ui'>No rendered HTML found.</div>"
-                    }
-                  />
+                    <div className="mt-5 text-sm font-semibold">Attachments</div>
+                    {attLoading ? (
+                      <div className="mt-2 text-sm text-black/60">Loading…</div>
+                    ) : attachments.length === 0 ? (
+                      <div className="mt-2 text-sm text-black/60">No attachments.</div>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {attachments.map((a) => (
+                          <div
+                            key={a.id}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white/70 px-4 py-3"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">
+                                {a.file_name || a.storage_path.split("/").pop()}
+                              </div>
+                              <div className="text-xs text-black/50 truncate">{a.storage_bucket}</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => downloadAttachment(a)}
+                              className="text-xs underline text-black/70 hover:text-black"
+                            >
+                              Download
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </WaterCard>
+
+                  {/* Preview */}
+                  <div className="lg:col-span-2">
+                    <WaterCard radius="xl" className="bg-white/80" padded={false}>
+                      <iframe
+                        title="Email preview"
+                        className="h-[75vh] w-full rounded-[var(--radius-xl)]"
+                        sandbox=""
+                        srcDoc={
+                          selectedEmail.rendered_html ||
+                          "<div style='padding:24px;font-family:system-ui'>No rendered HTML found.</div>"
+                        }
+                      />
+                    </WaterCard>
+                  </div>
                 </div>
-              </div>
+              </WaterCard>
             </div>
           </div>
         ) : null}
