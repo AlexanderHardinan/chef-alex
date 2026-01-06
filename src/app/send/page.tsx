@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import BackToDashboard from "@/components/back-to-dashboard";
 import LiquidGlassButton from "@/components/liquid-glass-button";
+import WaterCard from "@/components/water-card";
 import { toast } from "sonner";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { requireUserId } from "@/lib/db";
@@ -76,8 +77,6 @@ function iconImg(type: "phone" | "email" | "website" | "facebook" | "instagram" 
   };
 
   const src = map[type];
-
-  // display:block prevents baseline gaps in Gmail
   return `<img src="${src}" width="18" height="18" alt="${type}" style="width:18px;height:18px;display:block;border:0;outline:none;text-decoration:none" />`;
 }
 
@@ -120,7 +119,6 @@ function buildSignature(input: {
     `
       : "";
 
-  // NOTE: email-safe layout (no CSS grid). Uses a simple 2-column table.
   return `
     <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(0,0,0,.10)">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">
@@ -563,11 +561,9 @@ export default function SendPage() {
     toast.success(`Uploaded ${uploaded.length} file(s).`);
   }
 
-  // ✅ NEW: delete a single uploaded attachment (before send)
   async function removeUploadedAttachment(path: string) {
     const uid = await requireUserId();
 
-    // Safety: only allow deleting files inside the user's folder
     if (!path.startsWith(`${uid}/`)) {
       toast.error("Blocked: invalid attachment path.");
       return;
@@ -583,7 +579,6 @@ export default function SendPage() {
     toast.success("Attachment removed.");
   }
 
-  // ✅ NEW: remove all uploaded attachments (before send)
   async function clearAllUploadedAttachments() {
     const uid = await requireUserId();
 
@@ -701,25 +696,74 @@ export default function SendPage() {
       details: { ...json, recipients: mergedRecipientEmails, recipient_list_ids: selectedRecipientsIds },
     });
 
-    // Optional: keep uploadedPaths (history). If you prefer auto-clear after send, tell me.
     toast.success(`Email sent to ${mergedRecipientEmails.length} recipient(s).`);
   }
 
   if (loading) return null;
+
+  const selectedCount = selectedRecipientLists.length;
+  const mergedCount = mergedRecipientEmails.length;
 
   return (
     <main className="min-h-screen bg-white text-black px-6 py-8">
       <div className="mx-auto max-w-5xl">
         <BackToDashboard />
 
-        <h1 className="mt-6 text-2xl font-semibold">Send Email</h1>
-        <p className="mt-2 text-black/70">Multi-recipient + banner + signature + full preview</p>
+        <div className="mt-6">
+          <h1 className="text-2xl font-semibold">Send Email</h1>
+          <p className="mt-2 text-black/70">Multi-recipient • Banner • Signature • Full Preview</p>
+        </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <WaterCard className="mt-6" radius="xl">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <div className="text-lg font-semibold">Compose Center</div>
+              <div className="mt-1 text-sm text-black/70">
+                Recipients: <span className="font-medium text-black">{selectedCount}</span> list(s) •{" "}
+                <span className="font-medium text-black">{mergedCount}</span> unique email(s)
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(true)}>
+                Preview
+              </LiquidGlassButton>
+              <LiquidGlassButton onClick={sendEmail}>Send Email</LiquidGlassButton>
+            </div>
+          </div>
+        </WaterCard>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Recipients */}
-          <section className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
-            <div className="text-lg font-semibold">Recipients</div>
+          <WaterCard radius="xl">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">Recipients</div>
+                <div className="mt-1 text-sm text-black/70">
+                  Create lists and select multiple lists to send.
+                </div>
+              </div>
 
+              <div className="flex gap-2">
+                <button
+                  className="text-xs underline text-black/70 hover:text-black"
+                  onClick={selectAllRecipients}
+                  type="button"
+                >
+                  Select all
+                </button>
+                <span className="text-black/20">|</span>
+                <button
+                  className="text-xs underline text-black/70 hover:text-black"
+                  onClick={clearRecipientsSelection}
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            {/* Create list */}
             <div className="mt-4 space-y-3">
               <div>
                 <label className="text-sm font-medium">Label</label>
@@ -748,71 +792,79 @@ export default function SendPage() {
               </div>
             </div>
 
-            <div className="mt-5 border-t border-black/10 pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <label className="text-sm font-medium">Select Multiple Lists</label>
-                <div className="flex gap-2">
-                  <button
-                    className="text-xs underline text-black/70 hover:text-black"
-                    onClick={selectAllRecipients}
-                    type="button"
-                  >
-                    Select all
-                  </button>
-                  <span className="text-black/20">|</span>
-                  <button
-                    className="text-xs underline text-black/70 hover:text-black"
-                    onClick={clearRecipientsSelection}
-                    type="button"
-                  >
-                    Clear
-                  </button>
-                </div>
+            {/* Selected chips */}
+            <div className="mt-5 rounded-2xl border border-black/10 bg-white/60 p-4">
+              <div className="text-sm font-semibold">Selected</div>
+              <div className="mt-1 text-xs text-black/60">
+                {selectedCount} list(s) • {mergedCount} unique email(s)
               </div>
 
-              <div className="mt-3 space-y-2">
-                {recipientLists.map((r) => {
-                  const checked = selectedRecipientsIds.includes(r.id);
-                  return (
-                    <label
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedRecipientLists.length === 0 ? (
+                  <div className="text-sm text-black/60">No lists selected.</div>
+                ) : (
+                  selectedRecipientLists.map((r) => (
+                    <button
                       key={r.id}
-                      className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3"
+                      type="button"
+                      onClick={() => toggleRecipientList(r.id)}
+                      className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-white/80"
+                      title="Click to unselect"
                     >
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={checked}
-                        onChange={() => toggleRecipientList(r.id)}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{r.label}</div>
-                        <div className="text-xs text-black/60">{r.emails.length} email(s)</div>
-                        <div className="mt-1 text-xs text-black/60 break-words">{r.emails.join(", ")}</div>
-                        <div className="mt-2">
-                          <button
-                            type="button"
-                            onClick={() => deleteRecipientList(r.id)}
-                            className="text-xs underline text-black/70 hover:text-black"
-                          >
-                            Delete list
-                          </button>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 px-4 py-3">
-                <div className="text-sm font-medium">Merged recipients</div>
-                <div className="text-xs text-black/60">Total unique emails: {mergedRecipientEmails.length}</div>
+                      {r.label} <span className="text-black/50">({r.emails.length})</span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
-          </section>
+
+            {/* Lists */}
+            <div className="mt-4 space-y-2">
+              {recipientLists.map((r) => {
+                const checked = selectedRecipientsIds.includes(r.id);
+                return (
+                  <label
+                    key={r.id}
+                    className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3 transition hover:bg-white"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={checked}
+                      onChange={() => toggleRecipientList(r.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{r.label}</div>
+                          <div className="text-xs text-black/60">{r.emails.length} email(s)</div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteRecipientList(r.id)}
+                          className="text-xs underline text-black/70 hover:text-black whitespace-nowrap"
+                        >
+                          Delete
+                        </button>
+                      </div>
+
+                      <div className="mt-2 text-xs text-black/60 break-words">{r.emails.join(", ")}</div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </WaterCard>
 
           {/* Templates */}
-          <section className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
-            <div className="text-lg font-semibold">Templates</div>
+          <WaterCard radius="xl">
+            <div>
+              <div className="text-lg font-semibold">Templates</div>
+              <div className="mt-1 text-sm text-black/70">
+                Create, edit, preview and select a template.
+              </div>
+            </div>
 
             <div className="mt-4 space-y-3">
               <div>
@@ -881,7 +933,7 @@ export default function SendPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-black/10 bg-white/60 p-4">
+              <WaterCard radius="xl" className="bg-white/60 border-black/10" hover={false}>
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold">Signature</div>
                   <label className="flex items-center gap-2 text-sm">
@@ -924,8 +976,10 @@ export default function SendPage() {
                   </div>
                 </div>
 
-                <div className="mt-2 text-xs text-black/50">Social icons appear only when a URL is provided.</div>
-              </div>
+                <div className="mt-2 text-xs text-black/50">
+                  Social icons appear only when a URL is provided.
+                </div>
+              </WaterCard>
 
               <div className="flex flex-wrap gap-3">
                 <LiquidGlassButton onClick={createTemplate}>Create</LiquidGlassButton>
@@ -958,10 +1012,7 @@ export default function SendPage() {
                 <div className="mt-3 flex flex-wrap gap-3">
                   {selectedTemplate ? (
                     <>
-                      <LiquidGlassButton
-                        variant="ghost"
-                        onClick={() => loadTemplateIntoEditor(selectedTemplate)}
-                      >
+                      <LiquidGlassButton variant="ghost" onClick={() => loadTemplateIntoEditor(selectedTemplate)}>
                         Load into Editor
                       </LiquidGlassButton>
                       <LiquidGlassButton variant="ghost" onClick={() => deleteTemplate(selectedTemplate.id)}>
@@ -972,28 +1023,43 @@ export default function SendPage() {
                 </div>
               </div>
             </div>
-          </section>
+          </WaterCard>
         </div>
 
         {/* Attachments + Send */}
-        <section className="mt-4 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
-          <div className="text-lg font-semibold">Attachments & Send</div>
-
-          <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <input type="file" multiple onChange={(e) => setFiles(e.target.files)} className="w-full md:max-w-md" />
+        <WaterCard className="mt-4" radius="xl">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="text-lg font-semibold">Attachments & Send</div>
+              <div className="mt-1 text-sm text-black/70">
+                Upload files, optionally remove, then send.
+              </div>
+            </div>
 
             <div className="flex flex-wrap gap-3">
               <LiquidGlassButton variant="ghost" onClick={uploadAttachments}>
-                Upload Attachments
+                Upload
               </LiquidGlassButton>
               <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(true)}>
                 Preview Full Send
               </LiquidGlassButton>
-              <LiquidGlassButton onClick={sendEmail}>Send Email</LiquidGlassButton>
+              <LiquidGlassButton onClick={sendEmail}>Send</LiquidGlassButton>
             </div>
           </div>
 
-          {/* ✅ UPDATED: attachment list + delete controls */}
+          <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <input type="file" multiple onChange={(e) => setFiles(e.target.files)} className="w-full md:max-w-md" />
+
+            {uploadedPaths.length > 0 ? (
+              <div className="text-sm text-black/70">
+                Uploaded: <span className="font-medium text-black">{uploadedPaths.length}</span> file(s)
+              </div>
+            ) : (
+              <div className="text-sm text-black/60">No uploads yet.</div>
+            )}
+          </div>
+
+          {/* Attachment list + delete controls */}
           {uploadedPaths.length > 0 ? (
             <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 p-4">
               <div className="flex items-center justify-between gap-3">
@@ -1037,57 +1103,80 @@ export default function SendPage() {
               </div>
             </div>
           ) : null}
-        </section>
+        </WaterCard>
 
         {/* Preview Modal (includes recipients + email) */}
         {previewOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-5xl rounded-3xl border border-black/10 bg-white/85 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-              <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
-                <div className="text-lg font-semibold">Preview: Full Send</div>
-                <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
-                  Close
-                </LiquidGlassButton>
-              </div>
-
-              <div className="p-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
-                  <div className="text-sm font-semibold">Recipients</div>
-                  <div className="mt-2 text-xs text-black/60">
-                    Selected lists: {selectedRecipientLists.length}
-                    <br />
-                    Total unique emails: {mergedRecipientEmails.length}
+            <div className="w-full max-w-6xl">
+              <WaterCard radius="xl" padded={false} className="shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+                <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
+                  <div className="min-w-0">
+                    <div className="text-lg font-semibold truncate">Preview: Full Send</div>
+                    <div className="text-xs text-black/60 truncate">
+                      Lists: {selectedCount} • Unique emails: {mergedCount} • Attachments: {uploadedPaths.length}
+                    </div>
                   </div>
 
-                  <div className="mt-3 rounded-2xl border border-black/10 bg-white p-3 max-h-[40vh] overflow-auto">
-                    {mergedRecipientEmails.length === 0 ? (
-                      <div className="text-sm text-black/60">No recipients selected.</div>
-                    ) : (
-                      <ul className="text-sm text-black/80 space-y-1">
-                        {mergedRecipientEmails.map((e) => (
-                          <li key={e}>{e}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  <div className="mt-4 text-sm font-semibold">Sender</div>
-                  <div className="mt-1 text-sm text-black/70">
-                    From: <span className="font-medium">Chef Alex &lt;no-reply@alexhardinan.com&gt;</span>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
-                      Back
-                    </LiquidGlassButton>
-                    <LiquidGlassButton onClick={sendEmail}>Send Now</LiquidGlassButton>
-                  </div>
+                  <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
+                    Close
+                  </LiquidGlassButton>
                 </div>
 
-                <div className="rounded-2xl border border-black/10 bg-white">
-                  <iframe title="Email preview" className="h-[70vh] w-full rounded-2xl" sandbox="" srcDoc={previewHtml} />
+                <div className="p-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  {/* Left panel */}
+                  <WaterCard radius="xl" className="lg:col-span-1" hover={false}>
+                    <div className="text-sm font-semibold">Recipients</div>
+
+                    <div className="mt-2 text-xs text-black/60">
+                      Selected lists: {selectedCount}
+                      <br />
+                      Total unique emails: {mergedCount}
+                    </div>
+
+                    <div className="mt-3 rounded-2xl border border-black/10 bg-white/70 p-3 max-h-[36vh] overflow-auto">
+                      {mergedRecipientEmails.length === 0 ? (
+                        <div className="text-sm text-black/60">No recipients selected.</div>
+                      ) : (
+                        <ul className="text-sm text-black/80 space-y-1">
+                          {mergedRecipientEmails.map((e) => (
+                            <li key={e}>{e}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="mt-4 text-sm font-semibold">Attachments</div>
+                    <div className="mt-2 text-sm text-black/70">
+                      {uploadedPaths.length === 0 ? "No attachments." : `${uploadedPaths.length} file(s) ready.`}
+                    </div>
+
+                    <div className="mt-4 text-sm font-semibold">Sender</div>
+                    <div className="mt-1 text-sm text-black/70">
+                      From: <span className="font-medium">Chef Alex &lt;no-reply@alexhardinan.com&gt;</span>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
+                        Back
+                      </LiquidGlassButton>
+                      <LiquidGlassButton onClick={sendEmail}>Send Now</LiquidGlassButton>
+                    </div>
+                  </WaterCard>
+
+                  {/* Preview */}
+                  <div className="lg:col-span-2">
+                    <WaterCard radius="xl" className="bg-white/80" padded={false} hover={false}>
+                      <iframe
+                        title="Email preview"
+                        className="h-[75vh] w-full rounded-[var(--radius-xl)]"
+                        sandbox=""
+                        srcDoc={previewHtml}
+                      />
+                    </WaterCard>
+                  </div>
                 </div>
-              </div>
+              </WaterCard>
             </div>
           </div>
         ) : null}
