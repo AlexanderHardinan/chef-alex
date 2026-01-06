@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import BackToDashboard from "@/components/back-to-dashboard";
 import LiquidGlassButton from "@/components/liquid-glass-button";
-import WaterInput from "@/components/water-input";
-import WaterTextarea from "@/components/water-textarea";
 import { toast } from "sonner";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { requireUserId } from "@/lib/db";
@@ -15,6 +13,8 @@ type Template = {
   subject: string;
   preheader: string;
   banner_url: string;
+  extra_banner_url_1?: string | null;
+  extra_banner_url_2?: string | null;
   cta_text: string;
   cta_url: string;
   signature_enabled: boolean;
@@ -78,7 +78,6 @@ function iconImg(type: "phone" | "email" | "website" | "facebook" | "instagram" 
   };
 
   const src = map[type];
-
   return `<img src="${src}" width="18" height="18" alt="${type}" style="width:18px;height:18px;display:block;border:0;outline:none;text-decoration:none" />`;
 }
 
@@ -188,6 +187,8 @@ function buildHtml(input: {
   subject: string;
   preheader: string;
   bannerUrl: string;
+  extraBanner1?: string;
+  extraBanner2?: string;
   bodyText: string;
   ctaText: string;
   ctaUrl: string;
@@ -201,27 +202,42 @@ function buildHtml(input: {
   const bodyText = escapeHtml(input.bodyText || "");
   const ctaText = escapeHtml(input.ctaText || "");
   const ctaUrl = input.ctaUrl || "";
-  const bannerUrl = input.bannerUrl || "";
 
-  const banner = bannerUrl
+  const heroBanner = input.bannerUrl
     ? `
-      <div style="margin:0 0 16px 0">
+      <div style="margin:0 0 18px 0">
         <img
-          src="${bannerUrl}"
+          src="${input.bannerUrl}"
           alt="Banner"
+          style="width:100%;max-width:640px;border-radius:18px;display:block;border:1px solid rgba(0,0,0,.06)"
+        />
+      </div>`
+    : "";
+
+  const extraBanners = [input.extraBanner1, input.extraBanner2]
+    .filter(Boolean)
+    .map(
+      (url) => `
+      <div style="margin:16px 0 0 0">
+        <img
+          src="${url}"
+          alt="Additional Banner"
           style="width:100%;max-width:640px;border-radius:16px;display:block;border:1px solid rgba(0,0,0,.06)"
         />
-      </div>
-    `
-    : "";
+      </div>`
+    )
+    .join("");
 
   const safeCta =
     ctaText && ctaUrl
-      ? `<p style="margin:18px 0 0 0">
-           <a href="${ctaUrl}" style="display:inline-block;padding:12px 16px;border-radius:14px;background:#000;color:#fff;text-decoration:none">
-             ${ctaText}
-           </a>
-         </p>`
+      ? `
+      <p style="margin:20px 0 0 0">
+        <a href="${ctaUrl}"
+           style="display:inline-block;padding:14px 18px;border-radius:16px;
+                  background:#000;color:#fff;text-decoration:none;font-weight:600">
+          ${ctaText}
+        </a>
+      </p>`
       : "";
 
   const signature = buildSignature({
@@ -232,15 +248,29 @@ function buildHtml(input: {
   });
 
   return `
-  <div style="font-family:system-ui;line-height:1.55;color:#000;background:#fff;padding:24px">
-    <div style="max-width:640px;margin:0 auto;border:1px solid rgba(0,0,0,.08);border-radius:18px;padding:22px">
-      ${banner}
-      <div style="font-size:22px;font-weight:700;margin-bottom:6px">${subject}</div>
+  <div style="font-family:system-ui;-webkit-font-smoothing:antialiased;
+              line-height:1.55;color:#000;background:#fff;padding:24px">
+    <div style="max-width:640px;margin:0 auto;
+                border:1px solid rgba(0,0,0,.08);
+                border-radius:20px;padding:24px">
+
+      ${heroBanner}
+
+      <div style="font-size:22px;font-weight:800;margin-bottom:6px">
+        ${subject}
+      </div>
+
       ${preheader ? `<div style="color:rgba(0,0,0,.6);margin-bottom:14px">${preheader}</div>` : ""}
+
       <div style="white-space:pre-wrap">${bodyText}</div>
+
       ${safeCta}
+
+      ${extraBanners}
+
       ${signature}
-      <div style="margin-top:18px;color:rgba(0,0,0,.55);font-size:12px">
+
+      <div style="margin-top:20px;color:rgba(0,0,0,.55);font-size:12px">
         Chef Alex — My world, My style
       </div>
     </div>
@@ -264,6 +294,8 @@ export default function SendPage() {
   const [tplSubject, setTplSubject] = useState("");
   const [tplPreheader, setTplPreheader] = useState("");
   const [tplBannerUrl, setTplBannerUrl] = useState("");
+  const [tplBannerUrl1, setTplBannerUrl1] = useState("");
+  const [tplBannerUrl2, setTplBannerUrl2] = useState("");
   const [tplBody, setTplBody] = useState("");
   const [tplCtaText, setTplCtaText] = useState("");
   const [tplCtaUrl, setTplCtaUrl] = useState("");
@@ -303,6 +335,8 @@ export default function SendPage() {
       subject: tplSubject,
       preheader: tplPreheader,
       banner_url: tplBannerUrl,
+      extra_banner_url_1: tplBannerUrl1,
+      extra_banner_url_2: tplBannerUrl2,
       cta_text: tplCtaText,
       cta_url: tplCtaUrl,
       signature_enabled: sigEnabled,
@@ -319,6 +353,8 @@ export default function SendPage() {
       subject: (base as any).subject || "Chef Alex",
       preheader: (base as any).preheader || "",
       bannerUrl: (base as any).banner_url || "",
+      extraBanner1: (base as any).extra_banner_url_1 || "",
+      extraBanner2: (base as any).extra_banner_url_2 || "",
       bodyText: textBody || "",
       ctaText: (base as any).cta_text || "",
       ctaUrl: (base as any).cta_url || "",
@@ -332,6 +368,8 @@ export default function SendPage() {
     tplSubject,
     tplPreheader,
     tplBannerUrl,
+    tplBannerUrl1,
+    tplBannerUrl2,
     tplBody,
     tplCtaText,
     tplCtaUrl,
@@ -377,7 +415,7 @@ export default function SendPage() {
     const { data, error } = await supabase
       .from("email_templates")
       .select(
-        "id,name,subject,preheader,banner_url,cta_text,cta_url,signature_enabled,facebook_url,instagram_url,linkedin_url,body_json"
+        "id,name,subject,preheader,banner_url,extra_banner_url_1,extra_banner_url_2,cta_text,cta_url,signature_enabled,facebook_url,instagram_url,linkedin_url,body_json"
       )
       .order("created_at", { ascending: false });
 
@@ -437,6 +475,8 @@ export default function SendPage() {
 
     const urlsToCheck = [
       { label: "Banner URL", value: tplBannerUrl },
+      { label: "Extra Banner URL 1", value: tplBannerUrl1 },
+      { label: "Extra Banner URL 2", value: tplBannerUrl2 },
       { label: "CTA URL", value: tplCtaUrl },
       { label: "Facebook URL", value: fbUrl },
       { label: "Instagram URL", value: igUrl },
@@ -453,6 +493,8 @@ export default function SendPage() {
       subject: tplSubject.trim(),
       preheader: tplPreheader.trim(),
       banner_url: tplBannerUrl.trim(),
+      extra_banner_url_1: tplBannerUrl1.trim(),
+      extra_banner_url_2: tplBannerUrl2.trim(),
       body_json: [{ type: "text", value: tplBody }],
       cta_text: tplCtaText.trim(),
       cta_url: tplCtaUrl.trim(),
@@ -473,6 +515,8 @@ export default function SendPage() {
     setTplSubject(t.subject);
     setTplPreheader(t.preheader);
     setTplBannerUrl(t.banner_url || "");
+    setTplBannerUrl1(t.extra_banner_url_1 || "");
+    setTplBannerUrl2(t.extra_banner_url_2 || "");
     setTplCtaText(t.cta_text);
     setTplCtaUrl(t.cta_url);
 
@@ -494,6 +538,8 @@ export default function SendPage() {
 
     const urlsToCheck = [
       { label: "Banner URL", value: tplBannerUrl },
+      { label: "Extra Banner URL 1", value: tplBannerUrl1 },
+      { label: "Extra Banner URL 2", value: tplBannerUrl2 },
       { label: "CTA URL", value: tplCtaUrl },
       { label: "Facebook URL", value: fbUrl },
       { label: "Instagram URL", value: igUrl },
@@ -513,6 +559,8 @@ export default function SendPage() {
         subject: tplSubject.trim(),
         preheader: tplPreheader.trim(),
         banner_url: tplBannerUrl.trim(),
+        extra_banner_url_1: tplBannerUrl1.trim(),
+        extra_banner_url_2: tplBannerUrl2.trim(),
         cta_text: tplCtaText.trim(),
         cta_url: tplCtaUrl.trim(),
         body_json: blocks,
@@ -549,7 +597,6 @@ export default function SendPage() {
       const path = `${uid}/${crypto.randomUUID()}-${safeName}`;
 
       const { error } = await supabase.storage.from("chef-alex-attachments").upload(path, file, { upsert: false });
-
       if (error) return toast.error(error.message);
 
       uploaded.push(path);
@@ -561,7 +608,6 @@ export default function SendPage() {
 
   async function removeUploadedAttachment(path: string) {
     const uid = await requireUserId();
-
     if (!path.startsWith(`${uid}/`)) {
       toast.error("Blocked: invalid attachment path.");
       return;
@@ -612,6 +658,8 @@ export default function SendPage() {
       subject: tpl.subject || "Chef Alex",
       preheader: tpl.preheader || "",
       bannerUrl: tpl.banner_url || "",
+      extraBanner1: tpl.extra_banner_url_1 || "",
+      extraBanner2: tpl.extra_banner_url_2 || "",
       bodyText: textBody || "",
       ctaText: tpl.cta_text || "",
       ctaUrl: tpl.cta_url || "",
@@ -702,7 +750,7 @@ export default function SendPage() {
         <BackToDashboard />
 
         <h1 className="mt-6 text-2xl font-semibold">Send Email</h1>
-        <p className="mt-2 text-black/70">Multi-recipient + banner + signature + full preview</p>
+        <p className="mt-2 text-black/70">Multi-recipient + banners + signature + full preview</p>
 
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Recipients */}
@@ -712,15 +760,19 @@ export default function SendPage() {
             <div className="mt-4 space-y-3">
               <div>
                 <label className="text-sm font-medium">Label</label>
-                <WaterInput value={recLabel} onChange={(e) => setRecLabel(e.target.value)} className="mt-2" />
+                <input
+                  value={recLabel}
+                  onChange={(e) => setRecLabel(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                />
               </div>
 
               <div>
                 <label className="text-sm font-medium">Emails (comma or new line)</label>
-                <WaterTextarea
+                <textarea
                   value={recInput}
                   onChange={(e) => setRecInput(e.target.value)}
-                  className="mt-2 h-28 resize-none"
+                  className="mt-2 h-28 w-full resize-none rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
                   placeholder="a@domain.com, b@domain.com"
                 />
               </div>
@@ -759,7 +811,10 @@ export default function SendPage() {
                 {recipientLists.map((r) => {
                   const checked = selectedRecipientsIds.includes(r.id);
                   return (
-                    <label key={r.id} className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3">
+                    <label
+                      key={r.id}
+                      className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3"
+                    >
                       <input type="checkbox" className="mt-1" checked={checked} onChange={() => toggleRecipientList(r.id)} />
                       <div className="flex-1">
                         <div className="font-medium">{r.label}</div>
@@ -794,42 +849,89 @@ export default function SendPage() {
             <div className="mt-4 space-y-3">
               <div>
                 <label className="text-sm font-medium">Template Name</label>
-                <WaterInput value={tplName} onChange={(e) => setTplName(e.target.value)} className="mt-2" />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Subject</label>
-                <WaterInput value={tplSubject} onChange={(e) => setTplSubject(e.target.value)} className="mt-2" />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Preheader</label>
-                <WaterInput value={tplPreheader} onChange={(e) => setTplPreheader(e.target.value)} className="mt-2" />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Banner URL</label>
-                <WaterInput
-                  value={tplBannerUrl}
-                  onChange={(e) => setTplBannerUrl(e.target.value)}
-                  className="mt-2"
-                  placeholder="https://..."
+                <input
+                  value={tplName}
+                  onChange={(e) => setTplName(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
                 />
               </div>
 
               <div>
+                <label className="text-sm font-medium">Subject</label>
+                <input
+                  value={tplSubject}
+                  onChange={(e) => setTplSubject(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Preheader</label>
+                <input
+                  value={tplPreheader}
+                  onChange={(e) => setTplPreheader(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Banner URL (Hero)</label>
+                <input
+                  value={tplBannerUrl}
+                  onChange={(e) => setTplBannerUrl(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                  placeholder="https://..."
+                />
+              </div>
+
+              {/* ✅ NEW INPUTS */}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium">Extra Banner URL 1</label>
+                  <input
+                    value={tplBannerUrl1}
+                    onChange={(e) => setTplBannerUrl1(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Extra Banner URL 2</label>
+                  <input
+                    value={tplBannerUrl2}
+                    onChange={(e) => setTplBannerUrl2(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label className="text-sm font-medium">Body</label>
-                <WaterTextarea value={tplBody} onChange={(e) => setTplBody(e.target.value)} className="mt-2 h-28 resize-none" />
+                <textarea
+                  value={tplBody}
+                  onChange={(e) => setTplBody(e.target.value)}
+                  className="mt-2 h-28 w-full resize-none rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                />
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium">CTA Text</label>
-                  <WaterInput value={tplCtaText} onChange={(e) => setTplCtaText(e.target.value)} className="mt-2" />
+                  <input
+                    value={tplCtaText}
+                    onChange={(e) => setTplCtaText(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">CTA URL</label>
-                  <WaterInput value={tplCtaUrl} onChange={(e) => setTplCtaUrl(e.target.value)} className="mt-2" placeholder="https://..." />
+                  <input
+                    value={tplCtaUrl}
+                    onChange={(e) => setTplCtaUrl(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                    placeholder="https://..."
+                  />
                 </div>
               </div>
 
@@ -845,15 +947,30 @@ export default function SendPage() {
                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div>
                     <label className="text-xs font-medium">Facebook URL</label>
-                    <WaterInput value={fbUrl} onChange={(e) => setFbUrl(e.target.value)} className="mt-2" placeholder="https://facebook.com/..." />
+                    <input
+                      value={fbUrl}
+                      onChange={(e) => setFbUrl(e.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none"
+                      placeholder="https://facebook.com/..."
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium">Instagram URL</label>
-                    <WaterInput value={igUrl} onChange={(e) => setIgUrl(e.target.value)} className="mt-2" placeholder="https://instagram.com/..." />
+                    <input
+                      value={igUrl}
+                      onChange={(e) => setIgUrl(e.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none"
+                      placeholder="https://instagram.com/..."
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium">LinkedIn URL</label>
-                    <WaterInput value={liUrl} onChange={(e) => setLiUrl(e.target.value)} className="mt-2" placeholder="https://linkedin.com/in/..." />
+                    <input
+                      value={liUrl}
+                      onChange={(e) => setLiUrl(e.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none"
+                      placeholder="https://linkedin.com/in/..."
+                    />
                   </div>
                 </div>
 
@@ -878,7 +995,7 @@ export default function SendPage() {
                 <select
                   value={selectedTemplateId}
                   onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 backdrop-blur-xl px-4 py-3 outline-none transition-all duration-200 hover:bg-white/80 focus:ring-2 focus:ring-black/20"
+                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none"
                 >
                   <option value="">-- choose --</option>
                   {templates.map((t) => (
@@ -1014,7 +1131,12 @@ export default function SendPage() {
                 </div>
 
                 <div className="rounded-2xl border border-black/10 bg-white">
-                  <iframe title="Email preview" className="h-[70vh] w-full rounded-2xl" sandbox="" srcDoc={previewHtml} />
+                  <iframe
+                    title="Email preview"
+                    className="h-[70vh] w-full rounded-2xl"
+                    sandbox=""
+                    srcDoc={previewHtml}
+                  />
                 </div>
               </div>
             </div>
