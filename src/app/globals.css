@@ -174,3 +174,16 @@ body {
   letter-spacing: 0.2px;
   opacity: 0.95;
 }
+
+/* --- Chef Alex: global smoothness + hover typography polish --- */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a, button {
+  transition: transform 200ms ease, opacity 200ms ease, color 200ms ease, background-color 200ms ease;
+}
+
+::selection {
+  background: rgba(0,0,0,0.10);
+}
