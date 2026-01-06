@@ -34,9 +34,5 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "maskable",
       },
     ],
-    apple: {
-      capable: true,
-      statusBarStyle: "default",
-    },
   };
 }
