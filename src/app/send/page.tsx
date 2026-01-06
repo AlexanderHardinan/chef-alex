@@ -13,8 +13,6 @@ type Template = {
   subject: string;
   preheader: string;
   banner_url: string;
-  extra_banner_url_1?: string | null;
-  extra_banner_url_2?: string | null;
   cta_text: string;
   cta_url: string;
   signature_enabled: boolean;
@@ -187,8 +185,6 @@ function buildHtml(input: {
   subject: string;
   preheader: string;
   bannerUrl: string;
-  extraBanner1?: string;
-  extraBanner2?: string;
   bodyText: string;
   ctaText: string;
   ctaUrl: string;
@@ -202,42 +198,27 @@ function buildHtml(input: {
   const bodyText = escapeHtml(input.bodyText || "");
   const ctaText = escapeHtml(input.ctaText || "");
   const ctaUrl = input.ctaUrl || "";
+  const bannerUrl = input.bannerUrl || "";
 
-  const heroBanner = input.bannerUrl
+  const banner = bannerUrl
     ? `
-      <div style="margin:0 0 18px 0">
+      <div style="margin:0 0 16px 0">
         <img
-          src="${input.bannerUrl}"
+          src="${bannerUrl}"
           alt="Banner"
-          style="width:100%;max-width:640px;border-radius:18px;display:block;border:1px solid rgba(0,0,0,.06)"
-        />
-      </div>`
-    : "";
-
-  const extraBanners = [input.extraBanner1, input.extraBanner2]
-    .filter(Boolean)
-    .map(
-      (url) => `
-      <div style="margin:16px 0 0 0">
-        <img
-          src="${url}"
-          alt="Additional Banner"
           style="width:100%;max-width:640px;border-radius:16px;display:block;border:1px solid rgba(0,0,0,.06)"
         />
-      </div>`
-    )
-    .join("");
+      </div>
+    `
+    : "";
 
   const safeCta =
     ctaText && ctaUrl
-      ? `
-      <p style="margin:20px 0 0 0">
-        <a href="${ctaUrl}"
-           style="display:inline-block;padding:14px 18px;border-radius:16px;
-                  background:#000;color:#fff;text-decoration:none;font-weight:600">
-          ${ctaText}
-        </a>
-      </p>`
+      ? `<p style="margin:18px 0 0 0">
+           <a href="${ctaUrl}" style="display:inline-block;padding:12px 16px;border-radius:14px;background:#000;color:#fff;text-decoration:none">
+             ${ctaText}
+           </a>
+         </p>`
       : "";
 
   const signature = buildSignature({
@@ -248,29 +229,15 @@ function buildHtml(input: {
   });
 
   return `
-  <div style="font-family:system-ui;-webkit-font-smoothing:antialiased;
-              line-height:1.55;color:#000;background:#fff;padding:24px">
-    <div style="max-width:640px;margin:0 auto;
-                border:1px solid rgba(0,0,0,.08);
-                border-radius:20px;padding:24px">
-
-      ${heroBanner}
-
-      <div style="font-size:22px;font-weight:800;margin-bottom:6px">
-        ${subject}
-      </div>
-
+  <div style="font-family:system-ui;line-height:1.55;color:#000;background:#fff;padding:24px">
+    <div style="max-width:640px;margin:0 auto;border:1px solid rgba(0,0,0,.08);border-radius:18px;padding:22px">
+      ${banner}
+      <div style="font-size:22px;font-weight:700;margin-bottom:6px">${subject}</div>
       ${preheader ? `<div style="color:rgba(0,0,0,.6);margin-bottom:14px">${preheader}</div>` : ""}
-
       <div style="white-space:pre-wrap">${bodyText}</div>
-
       ${safeCta}
-
-      ${extraBanners}
-
       ${signature}
-
-      <div style="margin-top:20px;color:rgba(0,0,0,.55);font-size:12px">
+      <div style="margin-top:18px;color:rgba(0,0,0,.55);font-size:12px">
         Chef Alex — My world, My style
       </div>
     </div>
@@ -288,14 +255,16 @@ export default function SendPage() {
   const [recInput, setRecInput] = useState("");
   const [selectedRecipientsIds, setSelectedRecipientsIds] = useState<string[]>([]);
 
+  // ✅ NEW: collapse + search (recipients list)
+  const [recListsCollapsed, setRecListsCollapsed] = useState(false);
+  const [recSearch, setRecSearch] = useState("");
+
   // templates (editor)
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tplName, setTplName] = useState("My Template");
   const [tplSubject, setTplSubject] = useState("");
   const [tplPreheader, setTplPreheader] = useState("");
   const [tplBannerUrl, setTplBannerUrl] = useState("");
-  const [tplBannerUrl1, setTplBannerUrl1] = useState("");
-  const [tplBannerUrl2, setTplBannerUrl2] = useState("");
   const [tplBody, setTplBody] = useState("");
   const [tplCtaText, setTplCtaText] = useState("");
   const [tplCtaUrl, setTplCtaUrl] = useState("");
@@ -320,6 +289,18 @@ export default function SendPage() {
     [templates, selectedTemplateId]
   );
 
+  // ✅ NEW: filtered recipient lists
+  const filteredRecipientLists = useMemo(() => {
+    const q = recSearch.trim().toLowerCase();
+    if (!q) return recipientLists;
+
+    return recipientLists.filter((r) => {
+      const label = (r.label ?? "").toLowerCase();
+      const emails = (r.emails ?? []).join(", ").toLowerCase();
+      return label.includes(q) || emails.includes(q);
+    });
+  }, [recipientLists, recSearch]);
+
   const selectedRecipientLists = useMemo(() => {
     const set = new Set(selectedRecipientsIds);
     return recipientLists.filter((r) => set.has(r.id));
@@ -335,8 +316,6 @@ export default function SendPage() {
       subject: tplSubject,
       preheader: tplPreheader,
       banner_url: tplBannerUrl,
-      extra_banner_url_1: tplBannerUrl1,
-      extra_banner_url_2: tplBannerUrl2,
       cta_text: tplCtaText,
       cta_url: tplCtaUrl,
       signature_enabled: sigEnabled,
@@ -353,8 +332,6 @@ export default function SendPage() {
       subject: (base as any).subject || "Chef Alex",
       preheader: (base as any).preheader || "",
       bannerUrl: (base as any).banner_url || "",
-      extraBanner1: (base as any).extra_banner_url_1 || "",
-      extraBanner2: (base as any).extra_banner_url_2 || "",
       bodyText: textBody || "",
       ctaText: (base as any).cta_text || "",
       ctaUrl: (base as any).cta_url || "",
@@ -368,8 +345,6 @@ export default function SendPage() {
     tplSubject,
     tplPreheader,
     tplBannerUrl,
-    tplBannerUrl1,
-    tplBannerUrl2,
     tplBody,
     tplCtaText,
     tplCtaUrl,
@@ -415,7 +390,7 @@ export default function SendPage() {
     const { data, error } = await supabase
       .from("email_templates")
       .select(
-        "id,name,subject,preheader,banner_url,extra_banner_url_1,extra_banner_url_2,cta_text,cta_url,signature_enabled,facebook_url,instagram_url,linkedin_url,body_json"
+        "id,name,subject,preheader,banner_url,cta_text,cta_url,signature_enabled,facebook_url,instagram_url,linkedin_url,body_json"
       )
       .order("created_at", { ascending: false });
 
@@ -475,8 +450,6 @@ export default function SendPage() {
 
     const urlsToCheck = [
       { label: "Banner URL", value: tplBannerUrl },
-      { label: "Extra Banner URL 1", value: tplBannerUrl1 },
-      { label: "Extra Banner URL 2", value: tplBannerUrl2 },
       { label: "CTA URL", value: tplCtaUrl },
       { label: "Facebook URL", value: fbUrl },
       { label: "Instagram URL", value: igUrl },
@@ -493,8 +466,6 @@ export default function SendPage() {
       subject: tplSubject.trim(),
       preheader: tplPreheader.trim(),
       banner_url: tplBannerUrl.trim(),
-      extra_banner_url_1: tplBannerUrl1.trim(),
-      extra_banner_url_2: tplBannerUrl2.trim(),
       body_json: [{ type: "text", value: tplBody }],
       cta_text: tplCtaText.trim(),
       cta_url: tplCtaUrl.trim(),
@@ -515,8 +486,6 @@ export default function SendPage() {
     setTplSubject(t.subject);
     setTplPreheader(t.preheader);
     setTplBannerUrl(t.banner_url || "");
-    setTplBannerUrl1(t.extra_banner_url_1 || "");
-    setTplBannerUrl2(t.extra_banner_url_2 || "");
     setTplCtaText(t.cta_text);
     setTplCtaUrl(t.cta_url);
 
@@ -538,8 +507,6 @@ export default function SendPage() {
 
     const urlsToCheck = [
       { label: "Banner URL", value: tplBannerUrl },
-      { label: "Extra Banner URL 1", value: tplBannerUrl1 },
-      { label: "Extra Banner URL 2", value: tplBannerUrl2 },
       { label: "CTA URL", value: tplCtaUrl },
       { label: "Facebook URL", value: fbUrl },
       { label: "Instagram URL", value: igUrl },
@@ -559,8 +526,6 @@ export default function SendPage() {
         subject: tplSubject.trim(),
         preheader: tplPreheader.trim(),
         banner_url: tplBannerUrl.trim(),
-        extra_banner_url_1: tplBannerUrl1.trim(),
-        extra_banner_url_2: tplBannerUrl2.trim(),
         cta_text: tplCtaText.trim(),
         cta_url: tplCtaUrl.trim(),
         body_json: blocks,
@@ -597,6 +562,7 @@ export default function SendPage() {
       const path = `${uid}/${crypto.randomUUID()}-${safeName}`;
 
       const { error } = await supabase.storage.from("chef-alex-attachments").upload(path, file, { upsert: false });
+
       if (error) return toast.error(error.message);
 
       uploaded.push(path);
@@ -608,6 +574,7 @@ export default function SendPage() {
 
   async function removeUploadedAttachment(path: string) {
     const uid = await requireUserId();
+
     if (!path.startsWith(`${uid}/`)) {
       toast.error("Blocked: invalid attachment path.");
       return;
@@ -658,8 +625,6 @@ export default function SendPage() {
       subject: tpl.subject || "Chef Alex",
       preheader: tpl.preheader || "",
       bannerUrl: tpl.banner_url || "",
-      extraBanner1: tpl.extra_banner_url_1 || "",
-      extraBanner2: tpl.extra_banner_url_2 || "",
       bodyText: textBody || "",
       ctaText: tpl.cta_text || "",
       ctaUrl: tpl.cta_url || "",
@@ -750,12 +715,23 @@ export default function SendPage() {
         <BackToDashboard />
 
         <h1 className="mt-6 text-2xl font-semibold">Send Email</h1>
-        <p className="mt-2 text-black/70">Multi-recipient + banners + signature + full preview</p>
+        <p className="mt-2 text-black/70">Multi-recipient + banner + signature + full preview</p>
 
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Recipients */}
           <section className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
-            <div className="text-lg font-semibold">Recipients</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-lg font-semibold">Recipients</div>
+
+              {/* ✅ NEW: collapse button */}
+              <button
+                type="button"
+                onClick={() => setRecListsCollapsed((v) => !v)}
+                className="text-sm underline text-black/70 hover:text-black"
+              >
+                {recListsCollapsed ? "Expand lists" : "Collapse lists"}
+              </button>
+            </div>
 
             <div className="mt-4 space-y-3">
               <div>
@@ -807,33 +783,66 @@ export default function SendPage() {
                 </div>
               </div>
 
-              <div className="mt-3 space-y-2">
-                {recipientLists.map((r) => {
-                  const checked = selectedRecipientsIds.includes(r.id);
-                  return (
-                    <label
-                      key={r.id}
-                      className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3"
-                    >
-                      <input type="checkbox" className="mt-1" checked={checked} onChange={() => toggleRecipientList(r.id)} />
-                      <div className="flex-1">
-                        <div className="font-medium">{r.label}</div>
-                        <div className="text-xs text-black/60">{r.emails.length} email(s)</div>
-                        <div className="mt-1 text-xs text-black/60 break-words">{r.emails.join(", ")}</div>
-                        <div className="mt-2">
-                          <button
-                            type="button"
-                            onClick={() => deleteRecipientList(r.id)}
-                            className="text-xs underline text-black/70 hover:text-black"
-                          >
-                            Delete list
-                          </button>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+              {/* ✅ NEW: search input */}
+              {!recListsCollapsed ? (
+                <div className="mt-3">
+                  <input
+                    value={recSearch}
+                    onChange={(e) => setRecSearch(e.target.value)}
+                    placeholder="Search recipient lists (label or email)…"
+                    className="w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                  />
+                  <div className="mt-2 text-xs text-black/50">
+                    Showing: <span className="text-black">{filteredRecipientLists.length}</span> of{" "}
+                    <span className="text-black">{recipientLists.length}</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* ✅ NEW: collapsible recipient list display */}
+              {!recListsCollapsed ? (
+                <div className="mt-3 space-y-2">
+                  {filteredRecipientLists.length === 0 ? (
+                    <div className="text-sm text-black/60">No recipient lists found.</div>
+                  ) : (
+                    filteredRecipientLists.map((r) => {
+                      const checked = selectedRecipientsIds.includes(r.id);
+                      return (
+                        <label
+                          key={r.id}
+                          className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={checked}
+                            onChange={() => toggleRecipientList(r.id)}
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium">{r.label}</div>
+                            <div className="text-xs text-black/60">{r.emails.length} email(s)</div>
+                            <div className="mt-1 text-xs text-black/60 break-words">{r.emails.join(", ")}</div>
+                            <div className="mt-2">
+                              <button
+                                type="button"
+                                onClick={() => deleteRecipientList(r.id)}
+                                className="text-xs underline text-black/70 hover:text-black"
+                              >
+                                Delete list
+                              </button>
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3 text-sm text-black/70">
+                  Lists are collapsed. Selected lists:{" "}
+                  <span className="font-semibold text-black">{selectedRecipientLists.length}</span>
+                </div>
+              )}
 
               <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 px-4 py-3">
                 <div className="text-sm font-medium">Merged recipients</div>
@@ -875,35 +884,13 @@ export default function SendPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Banner URL (Hero)</label>
+                <label className="text-sm font-medium">Banner URL</label>
                 <input
                   value={tplBannerUrl}
                   onChange={(e) => setTplBannerUrl(e.target.value)}
                   className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
                   placeholder="https://..."
                 />
-              </div>
-
-              {/* ✅ NEW INPUTS */}
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium">Extra Banner URL 1</label>
-                  <input
-                    value={tplBannerUrl1}
-                    onChange={(e) => setTplBannerUrl1(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                    placeholder="https://..."
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Extra Banner URL 2</label>
-                  <input
-                    value={tplBannerUrl2}
-                    onChange={(e) => setTplBannerUrl2(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                    placeholder="https://..."
-                  />
-                </div>
               </div>
 
               <div>
