@@ -6,13 +6,13 @@
   --foreground: #000000;
 
   /* Water Gloss System */
-  --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.86);
   --glass-border: rgba(0, 0, 0, 0.10);
-  --glass-border-strong: rgba(0, 0, 0, 0.14);
+  --glass-border-strong: rgba(0, 0, 0, 0.16);
 
-  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.10);
-  --shadow-strong: 0 18px 60px rgba(0, 0, 0, 0.18);
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.12);
+  --shadow-strong: 0 18px 60px rgba(0, 0, 0, 0.20);
 
   --radius-lg: 18px;
   --radius-xl: 24px;

@@ -50,7 +50,6 @@ export default function DashboardAnalytics() {
   const supabase = supabaseBrowser();
 
   const [loading, setLoading] = useState(true);
-
   const [kpis, setKpis] = useState<Kpi[]>([]);
   const [sentSeries, setSentSeries] = useState<SentPoint[]>([]);
   const [statusBars, setStatusBars] = useState<BarPoint[]>([]);
@@ -69,7 +68,6 @@ export default function DashboardAnalytics() {
         return;
       }
 
-      // KPI counts (ALL TIME) - fast count queries
       const [sentCount, draftCount, deletedCount] = await Promise.all([
         supabase.from("emails").select("id", { count: "exact", head: true }).eq("owner_uuid", uid).eq("status", "sent"),
         supabase.from("emails").select("id", { count: "exact", head: true }).eq("owner_uuid", uid).eq("status", "draft"),
@@ -100,7 +98,6 @@ export default function DashboardAnalytics() {
         { name: "Deleted", value: deleted },
       ]);
 
-      // Line chart: sent per day (last 14 days)
       const since14 = isoDaysAgo(14);
       const sentRows = await supabase
         .from("emails")
@@ -124,7 +121,6 @@ export default function DashboardAnalytics() {
 
       setSentSeries(days.map((d) => ({ day: d.slice(5), sent: map[d] ?? 0 })));
 
-      // Recent activity (last 6 sent)
       const recent = await supabase
         .from("emails")
         .select("id,subject,sent_at")
@@ -144,7 +140,6 @@ export default function DashboardAnalytics() {
 
   useEffect(() => {
     refresh();
-    // "live" refresh every 30 seconds
     const t = window.setInterval(() => refresh(), 30000);
     return () => window.clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -157,19 +152,14 @@ export default function DashboardAnalytics() {
       {/* KPI Row */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {kpis.map((k) => (
-          <WaterCard key={k.label} radius={undefined as any}>
+          <WaterCard key={k.label} hover className="min-h-[120px]">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-sm font-semibold">{k.label}</div>
-                <div className="mt-2 text-3xl font-extrabold tracking-tight">{loading ? "—" : k.value}</div>
-                <div className="mt-1 text-xs text-black/60">{k.hint}</div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold tracking-tight">{k.label}</div>
+                <div className="mt-2 text-4xl font-extrabold tracking-tight">{loading ? "—" : k.value}</div>
+                <div className="mt-2 text-xs text-black/60">{k.hint}</div>
               </div>
-              <div
-                className="h-10 w-10 rounded-full border border-black/10"
-                style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(0,0,0,0.06))",
-                }}
-              />
+              <div className="h-11 w-11 rounded-2xl border border-black/10 bg-white/70 backdrop-blur-xl" />
             </div>
           </WaterCard>
         ))}
@@ -177,10 +167,10 @@ export default function DashboardAnalytics() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <WaterCard className="lg:col-span-2" padded={true}>
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <div className="text-lg font-semibold">Sent Performance</div>
+        <WaterCard className="lg:col-span-2" hover>
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              <div className="text-xl font-semibold tracking-tight">Performance</div>
               <div className="mt-1 text-sm text-black/70">
                 Last 14 days • Total sent: <span className="font-semibold text-black">{loading ? "—" : totalSent14}</span>
               </div>
@@ -191,7 +181,7 @@ export default function DashboardAnalytics() {
             </LiquidGlassButton>
           </div>
 
-          <div className="mt-4 h-[280px]">
+          <div className="mt-4 h-[300px] rounded-2xl border border-black/10 bg-white/60 p-3">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={sentSeries}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -204,13 +194,13 @@ export default function DashboardAnalytics() {
           </div>
         </WaterCard>
 
-        <WaterCard padded={true}>
-          <div>
-            <div className="text-lg font-semibold">Status Breakdown</div>
-            <div className="mt-1 text-sm text-black/70">All-time status totals</div>
+        <WaterCard hover>
+          <div className="min-w-0">
+            <div className="text-xl font-semibold tracking-tight">Status</div>
+            <div className="mt-1 text-sm text-black/70">All-time totals</div>
           </div>
 
-          <div className="mt-4 h-[280px]">
+          <div className="mt-4 h-[300px] rounded-2xl border border-black/10 bg-white/60 p-3">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={statusBars}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -225,10 +215,10 @@ export default function DashboardAnalytics() {
       </div>
 
       {/* Recent Activity */}
-      <WaterCard padded={true}>
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="text-lg font-semibold">Recent Sent</div>
+      <WaterCard hover>
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <div className="text-xl font-semibold tracking-tight">Recent Sent</div>
             <div className="mt-1 text-sm text-black/70">Latest sent emails</div>
           </div>
 
@@ -244,7 +234,10 @@ export default function DashboardAnalytics() {
             <div className="text-sm text-black/60">No sent emails yet.</div>
           ) : (
             recentSent.map((r) => (
-              <div key={r.id} className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white transition">
+              <div
+                key={r.id}
+                className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 transition hover:bg-white"
+              >
                 <div className="font-semibold truncate">{r.subject || "(No subject)"}</div>
                 <div className="mt-1 text-xs text-black/60 truncate">ID: {r.id}</div>
                 <div className="mt-1 text-xs text-black/60">
