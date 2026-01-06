@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import AppToaster from "@/components/toaster";
 import PwaRegister from "@/components/pwa-register";
+import RegisterSW from "@/components/pwa/register-sw";
 
 export const metadata: Metadata = {
   title: "Chef Alex",
