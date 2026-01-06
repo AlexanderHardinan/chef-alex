@@ -13,34 +13,38 @@ export default function LiquidGlassButton({
   ...props
 }: Props) {
   const base =
-    "water-gloss water-gloss-hover water-gloss-press water-gloss-focus " +
-    "relative inline-flex items-center justify-center gap-2 " +
-    "rounded-2xl px-5 py-3 " +
-    "transition-transform";
-
-  const primary =
-    // Uses global tokens. Slightly stronger surface than ghost.
-    "bg-[color:var(--glass-bg)] border-[color:var(--glass-border)]";
-
-  const ghost =
-    // Lighter, more transparent surface.
-    "bg-[color:rgba(255,255,255,0.38)] border-[color:rgba(0,0,0,0.10)]";
+    variant === "primary"
+      ? "bg-white/65 border-white/40 hover:bg-white/78"
+      : "bg-white/40 border-white/30 hover:bg-white/55";
 
   return (
     <button
-      className={cn(base, variant === "primary" ? primary : ghost, "text-black", className)}
+      className={cn(
+        // layout
+        "water-btn relative inline-flex items-center justify-center gap-2",
+        "rounded-2xl px-5 py-3",
+        // glass base
+        "backdrop-blur-xl border",
+        base,
+        // text + motion
+        "text-black",
+        "transition-all duration-200",
+        "hover:-translate-y-[1px] hover:shadow-[0_16px_50px_rgba(0,0,0,0.16)]",
+        "active:translate-y-0 active:scale-[0.99]",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30",
+        className
+      )}
       {...props}
     >
-      {/* Water highlight + sheen overlay (kept subtle, email-safe not relevant; UI only) */}
+      {/* soft highlight plate */}
       <span
-        aria-hidden="true"
         className={cn(
           "pointer-events-none absolute inset-0 rounded-2xl",
-          "opacity-80",
-          "bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.95),transparent_55%),radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.55),transparent_45%)]"
+          "bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.95),transparent_55%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.65),transparent_50%)]",
+          "opacity-70"
         )}
       />
-      <span className="relative">{props.children}</span>
+      <span className="relative water-btn-text">{props.children}</span>
     </button>
   );
 }

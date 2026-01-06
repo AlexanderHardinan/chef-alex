@@ -1,65 +1,35 @@
 @import "tailwindcss";
 
-/* =========================================
-   Chef Alex — Global Base (Light Only)
-   White dramatic background + black font
-   ========================================= */
-
+/* ---------- Global Theme (Light Only) ---------- */
 :root {
-  color-scheme: light;
-
   --background: #ffffff;
-  --foreground: #0a0a0a;
+  --foreground: #000000;
 
-  /* Brand accents */
-  --gold-1: #c9a24a;
-  --gold-2: #f5d98a;
-
-  /* =========================================
-     Water Gloss System (Clear Gloss / Water)
-     Use these for ALL glass buttons/cards
-     ========================================= */
-
-  /* Base glass layers */
+  /* Water Gloss System */
   --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-bg-hover: rgba(255, 255, 255, 0.74);
-  --glass-bg-pressed: rgba(255, 255, 255, 0.56);
-
-  /* Glass border + inner highlight */
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
   --glass-border: rgba(0, 0, 0, 0.10);
-  --glass-border-hover: rgba(0, 0, 0, 0.14);
-  --glass-inner-highlight: rgba(255, 255, 255, 0.75);
+  --glass-border-strong: rgba(0, 0, 0, 0.14);
 
-  /* Water reflection + sheen (top glow) */
-  --glass-sheen-1: rgba(255, 255, 255, 0.92);
-  --glass-sheen-2: rgba(255, 255, 255, 0.20);
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.10);
+  --shadow-strong: 0 18px 60px rgba(0, 0, 0, 0.18);
 
-  /* Shadow (clean, premium) */
-  --glass-shadow: 0 14px 45px rgba(0, 0, 0, 0.10);
-  --glass-shadow-hover: 0 18px 60px rgba(0, 0, 0, 0.14);
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 
-  /* Blur */
-  --glass-blur: 16px;
-
-  /* Focus ring */
-  --focus-ring: 0 0 0 3px rgba(0, 0, 0, 0.18);
-
-  /* Radius (global) */
-  --radius-lg: 22px;
-  --radius-xl: 28px;
-
-  /* Animation */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 160ms;
-  --dur-med: 240ms;
+  --motion-fast: 160ms;
+  --motion: 220ms;
 }
 
-/* Tailwind theme mapping (keeps your existing structure) */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  color-scheme: light;
 }
 
 html,
@@ -73,72 +43,134 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* =========================================
-   Water Gloss Utilities (global classes)
-   These DO NOT change existing layout unless used.
-   ========================================= */
-
-.water-gloss {
-  position: relative;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--glass-shadow);
-  transition:
-    transform var(--dur-med) var(--ease-out),
-    box-shadow var(--dur-med) var(--ease-out),
-    background var(--dur-med) var(--ease-out),
-    border-color var(--dur-med) var(--ease-out);
+/* ---------- Water Gloss Animations ---------- */
+@keyframes waterSheenSweep {
+  0% {
+    transform: translateX(-120%) rotate(12deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.55;
+  }
+  55% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(140%) rotate(12deg);
+    opacity: 0;
+  }
 }
 
+@keyframes waterFloat {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-2px);
+  }
+}
+
+/* ---------- Water Gloss Card ---------- */
+.water-gloss {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.water-card {
+  padding: 24px;
+}
+
+/* highlight layer */
 .water-gloss::before {
   content: "";
   position: absolute;
-  inset: 1px;
-  border-radius: calc(var(--radius-lg) - 1px);
+  inset: -2px;
   pointer-events: none;
-
-  /* inner highlight */
-  box-shadow: inset 0 1px 0 var(--glass-inner-highlight);
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.95), transparent 45%),
+    radial-gradient(circle at 82% 0%, rgba(255, 255, 255, 0.65), transparent 46%),
+    radial-gradient(circle at 70% 90%, rgba(255, 255, 255, 0.45), transparent 45%);
+  opacity: 0.75;
 }
 
-/* top sheen / reflection */
+/* sheen sweep */
 .water-gloss::after {
   content: "";
   position: absolute;
-  left: 10%;
-  right: 10%;
-  top: 6%;
-  height: 42%;
-  border-radius: 999px;
+  top: -40%;
+  left: -60%;
+  width: 70%;
+  height: 180%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55),
+    transparent
+  );
+  transform: rotate(12deg);
+  opacity: 0;
   pointer-events: none;
+}
 
-  background: linear-gradient(to bottom, var(--glass-sheen-1), var(--glass-sheen-2));
-  filter: blur(0.5px);
-  opacity: 0.55;
+.water-gloss-hover {
+  transition:
+    transform var(--motion) ease,
+    box-shadow var(--motion) ease,
+    border-color var(--motion) ease,
+    background var(--motion) ease;
 }
 
 .water-gloss-hover:hover {
-  background: var(--glass-bg-hover);
-  border-color: var(--glass-border-hover);
-  box-shadow: var(--glass-shadow-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  background: var(--glass-bg-strong);
+  border-color: var(--glass-border-strong);
+  box-shadow: var(--shadow-strong);
 }
 
-.water-gloss-press:active {
-  background: var(--glass-bg-pressed);
-  transform: translateY(0px) scale(0.99);
+.water-gloss-hover:hover::after {
+  animation: waterSheenSweep 900ms ease forwards;
 }
 
-.water-gloss-focus:focus-visible {
-  outline: none;
-  box-shadow: var(--glass-shadow), var(--focus-ring);
+/* ---------- Premium Water Button ---------- */
+.water-btn {
+  position: relative;
+  overflow: hidden;
 }
 
-/* Card preset (use on containers) */
-.water-card {
-  border-radius: var(--radius-xl);
-  padding: 1.5rem;
+.water-btn::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -70%;
+  width: 70%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.65),
+    transparent
+  );
+  transform: rotate(12deg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.water-btn:hover::after {
+  animation: waterSheenSweep 750ms ease forwards;
+}
+
+.water-btn-text {
+  transition: letter-spacing var(--motion) ease, opacity var(--motion) ease;
+}
+
+.water-btn:hover .water-btn-text {
+  letter-spacing: 0.2px;
+  opacity: 0.95;
 }
