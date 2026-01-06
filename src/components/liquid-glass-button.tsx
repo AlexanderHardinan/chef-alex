@@ -12,28 +12,32 @@ export default function LiquidGlassButton({
   variant = "primary",
   ...props
 }: Props) {
+  const base =
+    "water-gloss water-gloss-hover water-gloss-press water-gloss-focus " +
+    "relative inline-flex items-center justify-center gap-2 " +
+    "rounded-2xl px-5 py-3 " +
+    "transition-transform";
+
+  const primary =
+    // Uses global tokens. Slightly stronger surface than ghost.
+    "bg-[color:var(--glass-bg)] border-[color:var(--glass-border)]";
+
+  const ghost =
+    // Lighter, more transparent surface.
+    "bg-[color:rgba(255,255,255,0.38)] border-[color:rgba(0,0,0,0.10)]";
+
   return (
     <button
-      className={cn(
-        "relative inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3",
-        "transition-transform duration-200 active:scale-[0.98]",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30",
-        // Liquid glass base
-        "backdrop-blur-xl",
-        "border",
-        variant === "primary"
-          ? "bg-white/55 border-white/40 shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:bg-white/65"
-          : "bg-white/35 border-white/35 hover:bg-white/45",
-        "text-black",
-        className
-      )}
+      className={cn(base, variant === "primary" ? primary : ghost, "text-black", className)}
       {...props}
     >
+      {/* Water highlight + sheen overlay (kept subtle, email-safe not relevant; UI only) */}
       <span
+        aria-hidden="true"
         className={cn(
           "pointer-events-none absolute inset-0 rounded-2xl",
-          "bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.85),transparent_50%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.65),transparent_45%)]",
-          "opacity-70"
+          "opacity-80",
+          "bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.95),transparent_55%),radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.55),transparent_45%)]"
         )}
       />
       <span className="relative">{props.children}</span>
