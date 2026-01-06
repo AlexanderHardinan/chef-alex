@@ -1,3 +1,4 @@
+// src/app/send/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -76,6 +77,7 @@ function iconImg(type: "phone" | "email" | "website" | "facebook" | "instagram" 
   };
 
   const src = map[type];
+  // display:block prevents baseline gaps in Gmail
   return `<img src="${src}" width="18" height="18" alt="${type}" style="width:18px;height:18px;display:block;border:0;outline:none;text-decoration:none" />`;
 }
 
@@ -118,6 +120,7 @@ function buildSignature(input: {
     `
       : "";
 
+  // NOTE: email-safe layout (no CSS grid). Uses a simple 2-column table.
   return `
     <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(0,0,0,.10)">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">
@@ -255,7 +258,7 @@ export default function SendPage() {
   const [recInput, setRecInput] = useState("");
   const [selectedRecipientsIds, setSelectedRecipientsIds] = useState<string[]>([]);
 
-  // ✅ NEW: collapse + search (recipients list)
+  // collapse + search (recipients list)
   const [recListsCollapsed, setRecListsCollapsed] = useState(false);
   const [recSearch, setRecSearch] = useState("");
 
@@ -289,7 +292,7 @@ export default function SendPage() {
     [templates, selectedTemplateId]
   );
 
-  // ✅ NEW: filtered recipient lists
+  // filtered recipient lists
   const filteredRecipientLists = useMemo(() => {
     const q = recSearch.trim().toLowerCase();
     if (!q) return recipientLists;
@@ -562,7 +565,6 @@ export default function SendPage() {
       const path = `${uid}/${crypto.randomUUID()}-${safeName}`;
 
       const { error } = await supabase.storage.from("chef-alex-attachments").upload(path, file, { upsert: false });
-
       if (error) return toast.error(error.message);
 
       uploaded.push(path);
@@ -575,16 +577,14 @@ export default function SendPage() {
   async function removeUploadedAttachment(path: string) {
     const uid = await requireUserId();
 
+    // Safety: only allow deleting files inside the user's folder
     if (!path.startsWith(`${uid}/`)) {
       toast.error("Blocked: invalid attachment path.");
       return;
     }
 
     const { error } = await supabase.storage.from("chef-alex-attachments").remove([path]);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) return toast.error(error.message);
 
     setUploadedPaths((prev) => prev.filter((p) => p !== path));
     toast.success("Attachment removed.");
@@ -600,10 +600,7 @@ export default function SendPage() {
     }
 
     const { error } = await supabase.storage.from("chef-alex-attachments").remove(owned);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) return toast.error(error.message);
 
     setUploadedPaths([]);
     toast.success("All attachments removed.");
@@ -723,11 +720,10 @@ export default function SendPage() {
             <div className="flex items-center justify-between gap-3">
               <div className="text-lg font-semibold">Recipients</div>
 
-              {/* ✅ NEW: collapse button */}
               <button
                 type="button"
                 onClick={() => setRecListsCollapsed((v) => !v)}
-                className="text-sm underline text-black/70 hover:text-black"
+                className="text-sm underline text-black/70 hover:text-black transition-colors"
               >
                 {recListsCollapsed ? "Expand lists" : "Collapse lists"}
               </button>
@@ -766,7 +762,7 @@ export default function SendPage() {
                 <label className="text-sm font-medium">Select Multiple Lists</label>
                 <div className="flex gap-2">
                   <button
-                    className="text-xs underline text-black/70 hover:text-black"
+                    className="text-xs underline text-black/70 hover:text-black transition-colors"
                     onClick={selectAllRecipients}
                     type="button"
                   >
@@ -774,7 +770,7 @@ export default function SendPage() {
                   </button>
                   <span className="text-black/20">|</span>
                   <button
-                    className="text-xs underline text-black/70 hover:text-black"
+                    className="text-xs underline text-black/70 hover:text-black transition-colors"
                     onClick={clearRecipientsSelection}
                     type="button"
                   >
@@ -783,8 +779,13 @@ export default function SendPage() {
                 </div>
               </div>
 
-              {/* ✅ NEW: search input */}
-              {!recListsCollapsed ? (
+              {/* Animated search */}
+              <div
+                className={[
+                  "transition-all duration-300 ease-out",
+                  recListsCollapsed ? "max-h-0 opacity-0 pointer-events-none" : "max-h-[200px] opacity-100",
+                ].join(" ")}
+              >
                 <div className="mt-3">
                   <input
                     value={recSearch}
@@ -797,10 +798,15 @@ export default function SendPage() {
                     <span className="text-black">{recipientLists.length}</span>
                   </div>
                 </div>
-              ) : null}
+              </div>
 
-              {/* ✅ NEW: collapsible recipient list display */}
-              {!recListsCollapsed ? (
+              {/* Animated list */}
+              <div
+                className={[
+                  "transition-all duration-300 ease-out overflow-hidden",
+                  recListsCollapsed ? "max-h-0 opacity-0" : "max-h-[520px] opacity-100",
+                ].join(" ")}
+              >
                 <div className="mt-3 space-y-2">
                   {filteredRecipientLists.length === 0 ? (
                     <div className="text-sm text-black/60">No recipient lists found.</div>
@@ -826,7 +832,7 @@ export default function SendPage() {
                               <button
                                 type="button"
                                 onClick={() => deleteRecipientList(r.id)}
-                                className="text-xs underline text-black/70 hover:text-black"
+                                className="text-xs underline text-black/70 hover:text-black transition-colors"
                               >
                                 Delete list
                               </button>
@@ -837,12 +843,15 @@ export default function SendPage() {
                     })
                   )}
                 </div>
-              ) : (
+              </div>
+
+              {/* Collapsed summary */}
+              {recListsCollapsed ? (
                 <div className="mt-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3 text-sm text-black/70">
                   Lists are collapsed. Selected lists:{" "}
                   <span className="font-semibold text-black">{selectedRecipientLists.length}</span>
                 </div>
-              )}
+              ) : null}
 
               <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 px-4 py-3">
                 <div className="text-sm font-medium">Merged recipients</div>
@@ -1038,7 +1047,7 @@ export default function SendPage() {
                 <button
                   type="button"
                   onClick={clearAllUploadedAttachments}
-                  className="text-xs underline text-black/70 hover:text-black"
+                  className="text-xs underline text-black/70 hover:text-black transition-colors"
                 >
                   Remove all
                 </button>
@@ -1060,7 +1069,7 @@ export default function SendPage() {
                       <button
                         type="button"
                         onClick={() => removeUploadedAttachment(p)}
-                        className="text-xs underline text-black/70 hover:text-black"
+                        className="text-xs underline text-black/70 hover:text-black transition-colors"
                       >
                         Delete
                       </button>
@@ -1118,12 +1127,7 @@ export default function SendPage() {
                 </div>
 
                 <div className="rounded-2xl border border-black/10 bg-white">
-                  <iframe
-                    title="Email preview"
-                    className="h-[70vh] w-full rounded-2xl"
-                    sandbox=""
-                    srcDoc={previewHtml}
-                  />
+                  <iframe title="Email preview" className="h-[70vh] w-full rounded-2xl" sandbox="" srcDoc={previewHtml} />
                 </div>
               </div>
             </div>
