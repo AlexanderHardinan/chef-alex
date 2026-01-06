@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import BackToDashboard from "@/components/back-to-dashboard";
 import LiquidGlassButton from "@/components/liquid-glass-button";
-import WaterCard from "@/components/water-card";
+import WaterInput from "@/components/water-input";
+import WaterTextarea from "@/components/water-textarea";
 import { toast } from "sonner";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { requireUserId } from "@/lib/db";
@@ -77,6 +78,7 @@ function iconImg(type: "phone" | "email" | "website" | "facebook" | "instagram" 
   };
 
   const src = map[type];
+
   return `<img src="${src}" width="18" height="18" alt="${type}" style="width:18px;height:18px;display:block;border:0;outline:none;text-decoration:none" />`;
 }
 
@@ -418,9 +420,7 @@ export default function SendPage() {
   }
 
   function toggleRecipientList(id: string) {
-    setSelectedRecipientsIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelectedRecipientsIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   function selectAllRecipients() {
@@ -548,9 +548,7 @@ export default function SendPage() {
       const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
       const path = `${uid}/${crypto.randomUUID()}-${safeName}`;
 
-      const { error } = await supabase.storage
-        .from("chef-alex-attachments")
-        .upload(path, file, { upsert: false });
+      const { error } = await supabase.storage.from("chef-alex-attachments").upload(path, file, { upsert: false });
 
       if (error) return toast.error(error.message);
 
@@ -684,10 +682,7 @@ export default function SendPage() {
       return toast.error(json?.error?.message ?? "Send failed.");
     }
 
-    await supabase
-      .from("emails")
-      .update({ status: "sent", sent_at: new Date().toISOString() })
-      .eq("id", emailRow.id);
+    await supabase.from("emails").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", emailRow.id);
 
     await supabase.from("email_logs").insert({
       owner_uuid: uid,
@@ -701,85 +696,31 @@ export default function SendPage() {
 
   if (loading) return null;
 
-  const selectedCount = selectedRecipientLists.length;
-  const mergedCount = mergedRecipientEmails.length;
-
   return (
     <main className="min-h-screen bg-white text-black px-6 py-8">
       <div className="mx-auto max-w-5xl">
         <BackToDashboard />
 
-        <div className="mt-6">
-          <h1 className="text-2xl font-semibold">Send Email</h1>
-          <p className="mt-2 text-black/70">Multi-recipient • Banner • Signature • Full Preview</p>
-        </div>
+        <h1 className="mt-6 text-2xl font-semibold">Send Email</h1>
+        <p className="mt-2 text-black/70">Multi-recipient + banner + signature + full preview</p>
 
-        <WaterCard className="mt-6" radius="xl">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <div className="text-lg font-semibold">Compose Center</div>
-              <div className="mt-1 text-sm text-black/70">
-                Recipients: <span className="font-medium text-black">{selectedCount}</span> list(s) •{" "}
-                <span className="font-medium text-black">{mergedCount}</span> unique email(s)
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(true)}>
-                Preview
-              </LiquidGlassButton>
-              <LiquidGlassButton onClick={sendEmail}>Send Email</LiquidGlassButton>
-            </div>
-          </div>
-        </WaterCard>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Recipients */}
-          <WaterCard radius="xl">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <div className="text-lg font-semibold">Recipients</div>
-                <div className="mt-1 text-sm text-black/70">
-                  Create lists and select multiple lists to send.
-                </div>
-              </div>
+          <section className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
+            <div className="text-lg font-semibold">Recipients</div>
 
-              <div className="flex gap-2">
-                <button
-                  className="text-xs underline text-black/70 hover:text-black"
-                  onClick={selectAllRecipients}
-                  type="button"
-                >
-                  Select all
-                </button>
-                <span className="text-black/20">|</span>
-                <button
-                  className="text-xs underline text-black/70 hover:text-black"
-                  onClick={clearRecipientsSelection}
-                  type="button"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-
-            {/* Create list */}
             <div className="mt-4 space-y-3">
               <div>
                 <label className="text-sm font-medium">Label</label>
-                <input
-                  value={recLabel}
-                  onChange={(e) => setRecLabel(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                />
+                <WaterInput value={recLabel} onChange={(e) => setRecLabel(e.target.value)} className="mt-2" />
               </div>
 
               <div>
                 <label className="text-sm font-medium">Emails (comma or new line)</label>
-                <textarea
+                <WaterTextarea
                   value={recInput}
                   onChange={(e) => setRecInput(e.target.value)}
-                  className="mt-2 h-28 w-full resize-none rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                  className="mt-2 h-28 resize-none"
                   placeholder="a@domain.com, b@domain.com"
                 />
               </div>
@@ -792,156 +733,111 @@ export default function SendPage() {
               </div>
             </div>
 
-            {/* Selected chips */}
-            <div className="mt-5 rounded-2xl border border-black/10 bg-white/60 p-4">
-              <div className="text-sm font-semibold">Selected</div>
-              <div className="mt-1 text-xs text-black/60">
-                {selectedCount} list(s) • {mergedCount} unique email(s)
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {selectedRecipientLists.length === 0 ? (
-                  <div className="text-sm text-black/60">No lists selected.</div>
-                ) : (
-                  selectedRecipientLists.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => toggleRecipientList(r.id)}
-                      className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-white/80"
-                      title="Click to unselect"
-                    >
-                      {r.label} <span className="text-black/50">({r.emails.length})</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Lists */}
-            <div className="mt-4 space-y-2">
-              {recipientLists.map((r) => {
-                const checked = selectedRecipientsIds.includes(r.id);
-                return (
-                  <label
-                    key={r.id}
-                    className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3 transition hover:bg-white"
+            <div className="mt-5 border-t border-black/10 pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-sm font-medium">Select Multiple Lists</label>
+                <div className="flex gap-2">
+                  <button
+                    className="text-xs underline text-black/70 hover:text-black"
+                    onClick={selectAllRecipients}
+                    type="button"
                   >
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={checked}
-                      onChange={() => toggleRecipientList(r.id)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-medium truncate">{r.label}</div>
-                          <div className="text-xs text-black/60">{r.emails.length} email(s)</div>
+                    Select all
+                  </button>
+                  <span className="text-black/20">|</span>
+                  <button
+                    className="text-xs underline text-black/70 hover:text-black"
+                    onClick={clearRecipientsSelection}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {recipientLists.map((r) => {
+                  const checked = selectedRecipientsIds.includes(r.id);
+                  return (
+                    <label key={r.id} className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3">
+                      <input type="checkbox" className="mt-1" checked={checked} onChange={() => toggleRecipientList(r.id)} />
+                      <div className="flex-1">
+                        <div className="font-medium">{r.label}</div>
+                        <div className="text-xs text-black/60">{r.emails.length} email(s)</div>
+                        <div className="mt-1 text-xs text-black/60 break-words">{r.emails.join(", ")}</div>
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => deleteRecipientList(r.id)}
+                            className="text-xs underline text-black/70 hover:text-black"
+                          >
+                            Delete list
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => deleteRecipientList(r.id)}
-                          className="text-xs underline text-black/70 hover:text-black whitespace-nowrap"
-                        >
-                          Delete
-                        </button>
                       </div>
+                    </label>
+                  );
+                })}
+              </div>
 
-                      <div className="mt-2 text-xs text-black/60 break-words">{r.emails.join(", ")}</div>
-                    </div>
-                  </label>
-                );
-              })}
+              <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 px-4 py-3">
+                <div className="text-sm font-medium">Merged recipients</div>
+                <div className="text-xs text-black/60">Total unique emails: {mergedRecipientEmails.length}</div>
+              </div>
             </div>
-          </WaterCard>
+          </section>
 
           {/* Templates */}
-          <WaterCard radius="xl">
-            <div>
-              <div className="text-lg font-semibold">Templates</div>
-              <div className="mt-1 text-sm text-black/70">
-                Create, edit, preview and select a template.
-              </div>
-            </div>
+          <section className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
+            <div className="text-lg font-semibold">Templates</div>
 
             <div className="mt-4 space-y-3">
               <div>
                 <label className="text-sm font-medium">Template Name</label>
-                <input
-                  value={tplName}
-                  onChange={(e) => setTplName(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                />
+                <WaterInput value={tplName} onChange={(e) => setTplName(e.target.value)} className="mt-2" />
               </div>
 
               <div>
                 <label className="text-sm font-medium">Subject</label>
-                <input
-                  value={tplSubject}
-                  onChange={(e) => setTplSubject(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                />
+                <WaterInput value={tplSubject} onChange={(e) => setTplSubject(e.target.value)} className="mt-2" />
               </div>
 
               <div>
                 <label className="text-sm font-medium">Preheader</label>
-                <input
-                  value={tplPreheader}
-                  onChange={(e) => setTplPreheader(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                />
+                <WaterInput value={tplPreheader} onChange={(e) => setTplPreheader(e.target.value)} className="mt-2" />
               </div>
 
               <div>
                 <label className="text-sm font-medium">Banner URL</label>
-                <input
+                <WaterInput
                   value={tplBannerUrl}
                   onChange={(e) => setTplBannerUrl(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                  className="mt-2"
                   placeholder="https://..."
                 />
               </div>
 
               <div>
                 <label className="text-sm font-medium">Body</label>
-                <textarea
-                  value={tplBody}
-                  onChange={(e) => setTplBody(e.target.value)}
-                  className="mt-2 h-28 w-full resize-none rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                />
+                <WaterTextarea value={tplBody} onChange={(e) => setTplBody(e.target.value)} className="mt-2 h-28 resize-none" />
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium">CTA Text</label>
-                  <input
-                    value={tplCtaText}
-                    onChange={(e) => setTplCtaText(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                  />
+                  <WaterInput value={tplCtaText} onChange={(e) => setTplCtaText(e.target.value)} className="mt-2" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">CTA URL</label>
-                  <input
-                    value={tplCtaUrl}
-                    onChange={(e) => setTplCtaUrl(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                    placeholder="https://..."
-                  />
+                  <WaterInput value={tplCtaUrl} onChange={(e) => setTplCtaUrl(e.target.value)} className="mt-2" placeholder="https://..." />
                 </div>
               </div>
 
-              <WaterCard radius="xl" className="bg-white/60 border-black/10" hover={false}>
+              <div className="rounded-2xl border border-black/10 bg-white/60 p-4">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold">Signature</div>
                   <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={sigEnabled}
-                      onChange={(e) => setSigEnabled(e.target.checked)}
-                    />
+                    <input type="checkbox" checked={sigEnabled} onChange={(e) => setSigEnabled(e.target.checked)} />
                     Enable
                   </label>
                 </div>
@@ -949,37 +845,20 @@ export default function SendPage() {
                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div>
                     <label className="text-xs font-medium">Facebook URL</label>
-                    <input
-                      value={fbUrl}
-                      onChange={(e) => setFbUrl(e.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none"
-                      placeholder="https://facebook.com/..."
-                    />
+                    <WaterInput value={fbUrl} onChange={(e) => setFbUrl(e.target.value)} className="mt-2" placeholder="https://facebook.com/..." />
                   </div>
                   <div>
                     <label className="text-xs font-medium">Instagram URL</label>
-                    <input
-                      value={igUrl}
-                      onChange={(e) => setIgUrl(e.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none"
-                      placeholder="https://instagram.com/..."
-                    />
+                    <WaterInput value={igUrl} onChange={(e) => setIgUrl(e.target.value)} className="mt-2" placeholder="https://instagram.com/..." />
                   </div>
                   <div>
                     <label className="text-xs font-medium">LinkedIn URL</label>
-                    <input
-                      value={liUrl}
-                      onChange={(e) => setLiUrl(e.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none"
-                      placeholder="https://linkedin.com/in/..."
-                    />
+                    <WaterInput value={liUrl} onChange={(e) => setLiUrl(e.target.value)} className="mt-2" placeholder="https://linkedin.com/in/..." />
                   </div>
                 </div>
 
-                <div className="mt-2 text-xs text-black/50">
-                  Social icons appear only when a URL is provided.
-                </div>
-              </WaterCard>
+                <div className="mt-2 text-xs text-black/50">Social icons appear only when a URL is provided.</div>
+              </div>
 
               <div className="flex flex-wrap gap-3">
                 <LiquidGlassButton onClick={createTemplate}>Create</LiquidGlassButton>
@@ -999,7 +878,7 @@ export default function SendPage() {
                 <select
                   value={selectedTemplateId}
                   onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none"
+                  className="mt-2 w-full rounded-2xl border border-black/10 bg-white/70 backdrop-blur-xl px-4 py-3 outline-none transition-all duration-200 hover:bg-white/80 focus:ring-2 focus:ring-black/20"
                 >
                   <option value="">-- choose --</option>
                   {templates.map((t) => (
@@ -1023,43 +902,27 @@ export default function SendPage() {
                 </div>
               </div>
             </div>
-          </WaterCard>
+          </section>
         </div>
 
         {/* Attachments + Send */}
-        <WaterCard className="mt-4" radius="xl">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="text-lg font-semibold">Attachments & Send</div>
-              <div className="mt-1 text-sm text-black/70">
-                Upload files, optionally remove, then send.
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <LiquidGlassButton variant="ghost" onClick={uploadAttachments}>
-                Upload
-              </LiquidGlassButton>
-              <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(true)}>
-                Preview Full Send
-              </LiquidGlassButton>
-              <LiquidGlassButton onClick={sendEmail}>Send</LiquidGlassButton>
-            </div>
-          </div>
+        <section className="mt-4 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
+          <div className="text-lg font-semibold">Attachments & Send</div>
 
           <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <input type="file" multiple onChange={(e) => setFiles(e.target.files)} className="w-full md:max-w-md" />
 
-            {uploadedPaths.length > 0 ? (
-              <div className="text-sm text-black/70">
-                Uploaded: <span className="font-medium text-black">{uploadedPaths.length}</span> file(s)
-              </div>
-            ) : (
-              <div className="text-sm text-black/60">No uploads yet.</div>
-            )}
+            <div className="flex flex-wrap gap-3">
+              <LiquidGlassButton variant="ghost" onClick={uploadAttachments}>
+                Upload Attachments
+              </LiquidGlassButton>
+              <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(true)}>
+                Preview Full Send
+              </LiquidGlassButton>
+              <LiquidGlassButton onClick={sendEmail}>Send Email</LiquidGlassButton>
+            </div>
           </div>
 
-          {/* Attachment list + delete controls */}
           {uploadedPaths.length > 0 ? (
             <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 p-4">
               <div className="flex items-center justify-between gap-3">
@@ -1103,80 +966,57 @@ export default function SendPage() {
               </div>
             </div>
           ) : null}
-        </WaterCard>
+        </section>
 
         {/* Preview Modal (includes recipients + email) */}
         {previewOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-6xl">
-              <WaterCard radius="xl" padded={false} className="shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-                <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
-                  <div className="min-w-0">
-                    <div className="text-lg font-semibold truncate">Preview: Full Send</div>
-                    <div className="text-xs text-black/60 truncate">
-                      Lists: {selectedCount} • Unique emails: {mergedCount} • Attachments: {uploadedPaths.length}
-                    </div>
+            <div className="w-full max-w-5xl rounded-3xl border border-black/10 bg-white/85 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
+              <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
+                <div className="text-lg font-semibold">Preview: Full Send</div>
+                <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
+                  Close
+                </LiquidGlassButton>
+              </div>
+
+              <div className="p-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
+                  <div className="text-sm font-semibold">Recipients</div>
+                  <div className="mt-2 text-xs text-black/60">
+                    Selected lists: {selectedRecipientLists.length}
+                    <br />
+                    Total unique emails: {mergedRecipientEmails.length}
                   </div>
 
-                  <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
-                    Close
-                  </LiquidGlassButton>
-                </div>
+                  <div className="mt-3 rounded-2xl border border-black/10 bg-white p-3 max-h-[40vh] overflow-auto">
+                    {mergedRecipientEmails.length === 0 ? (
+                      <div className="text-sm text-black/60">No recipients selected.</div>
+                    ) : (
+                      <ul className="text-sm text-black/80 space-y-1">
+                        {mergedRecipientEmails.map((e) => (
+                          <li key={e}>{e}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
 
-                <div className="p-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                  {/* Left panel */}
-                  <WaterCard radius="xl" className="lg:col-span-1" hover={false}>
-                    <div className="text-sm font-semibold">Recipients</div>
+                  <div className="mt-4 text-sm font-semibold">Sender</div>
+                  <div className="mt-1 text-sm text-black/70">
+                    From: <span className="font-medium">Chef Alex &lt;no-reply@alexhardinan.com&gt;</span>
+                  </div>
 
-                    <div className="mt-2 text-xs text-black/60">
-                      Selected lists: {selectedCount}
-                      <br />
-                      Total unique emails: {mergedCount}
-                    </div>
-
-                    <div className="mt-3 rounded-2xl border border-black/10 bg-white/70 p-3 max-h-[36vh] overflow-auto">
-                      {mergedRecipientEmails.length === 0 ? (
-                        <div className="text-sm text-black/60">No recipients selected.</div>
-                      ) : (
-                        <ul className="text-sm text-black/80 space-y-1">
-                          {mergedRecipientEmails.map((e) => (
-                            <li key={e}>{e}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-
-                    <div className="mt-4 text-sm font-semibold">Attachments</div>
-                    <div className="mt-2 text-sm text-black/70">
-                      {uploadedPaths.length === 0 ? "No attachments." : `${uploadedPaths.length} file(s) ready.`}
-                    </div>
-
-                    <div className="mt-4 text-sm font-semibold">Sender</div>
-                    <div className="mt-1 text-sm text-black/70">
-                      From: <span className="font-medium">Chef Alex &lt;no-reply@alexhardinan.com&gt;</span>
-                    </div>
-
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
-                        Back
-                      </LiquidGlassButton>
-                      <LiquidGlassButton onClick={sendEmail}>Send Now</LiquidGlassButton>
-                    </div>
-                  </WaterCard>
-
-                  {/* Preview */}
-                  <div className="lg:col-span-2">
-                    <WaterCard radius="xl" className="bg-white/80" padded={false} hover={false}>
-                      <iframe
-                        title="Email preview"
-                        className="h-[75vh] w-full rounded-[var(--radius-xl)]"
-                        sandbox=""
-                        srcDoc={previewHtml}
-                      />
-                    </WaterCard>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
+                      Back
+                    </LiquidGlassButton>
+                    <LiquidGlassButton onClick={sendEmail}>Send Now</LiquidGlassButton>
                   </div>
                 </div>
-              </WaterCard>
+
+                <div className="rounded-2xl border border-black/10 bg-white">
+                  <iframe title="Email preview" className="h-[70vh] w-full rounded-2xl" sandbox="" srcDoc={previewHtml} />
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
