@@ -1,36 +1,200 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Chef Alex — Email CRM (Next.js + Supabase + Resend)
 
-## Getting Started
+A lightweight email CRM built for Chef Alex: manage recipient lists and templates, send emails (with attachments), and track activity in Reports and Dashboard Analytics.
 
-First, run the development server:
+Features
 
-```bash
+Auth: Supabase email/password login
+
+Recipients: create recipient lists, select multiple lists, merge + dedupe emails, search + collapse recipient list panel
+
+Templates: subject, preheader, banner URL, body text, CTA text + URL, signature block with social icons
+
+Attachments: upload to Supabase Storage, link to sent emails
+
+Send: send via /api/send-email (Resend), logs stored in email_logs
+
+Reports: Sent / Draft / Deleted + restore + permanent delete
+
+Dashboard: KPI metrics + charts + recent activity
+
+Tech Stack
+
+Next.js (App Router)
+
+React
+
+Tailwind CSS
+
+Supabase (Auth, Postgres, Storage)
+
+Resend (email provider)
+
+Sonner (toasts)
+
+Getting Started
+1) Install
+npm install
+
+2) Environment Variables
+
+Create .env.local in the project root:
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+
+# Resend (server-side)
+RESEND_API_KEY=YOUR_RESEND_API_KEY
+
+# Optional (used by your send logic / domain)
+EMAIL_FROM=no-reply@alexhardinan.com
+
+3) Run locally
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+http://localhost:3000/login
 
-## Learn More
+http://localhost:3000/dashboard
 
-To learn more about Next.js, take a look at the following resources:
+http://localhost:3000/send
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+http://localhost:3000/reports
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Database Tables (Supabase)
 
-## Deploy on Vercel
+This project expects these tables (names must match):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+email_recipients
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+id (uuid, pk)
+
+owner_uuid (uuid)
+
+label (text)
+
+emails (text[])
+
+created_at (timestamp)
+
+email_templates
+
+id (uuid, pk)
+
+owner_uuid (uuid)
+
+name (text)
+
+subject (text)
+
+preheader (text)
+
+banner_url (text)
+
+cta_text (text)
+
+cta_url (text)
+
+signature_enabled (bool)
+
+facebook_url (text)
+
+instagram_url (text)
+
+linkedin_url (text)
+
+body_json (jsonb)
+
+created_at (timestamp)
+
+emails
+
+id (uuid, pk)
+
+owner_uuid (uuid)
+
+status (draft | sent | deleted)
+
+template_id (uuid)
+
+recipients_id (uuid nullable)
+
+subject (text)
+
+rendered_html (text)
+
+cta_text (text)
+
+cta_url (text)
+
+sent_at (timestamp nullable)
+
+created_at (timestamp)
+
+attachments
+
+id (uuid, pk)
+
+owner_uuid (uuid)
+
+email_id (uuid)
+
+storage_bucket (text)
+
+storage_path (text)
+
+file_name (text)
+
+content_type (text)
+
+file_size_bytes (bigint)
+
+created_at (timestamp)
+
+email_logs
+
+id (uuid, pk)
+
+owner_uuid (uuid)
+
+email_id (uuid)
+
+action (text)
+
+details (jsonb)
+
+created_at (timestamp)
+
+Supabase Storage
+
+Bucket required:
+
+chef-alex-attachments
+
+Attachments are uploaded to:
+
+/{userId}/{uuid}-{filename}
+
+Deployment (Vercel)
+Production deployment checklist
+
+Merge your working branch into main
+
+Push to GitHub main
+
+In Vercel, set Production Branch = main
+
+Deploy
+
+Commands (Windows)
+git checkout main
+git pull origin main
+git merge polish-ui-v1
+git push origin main
+
+License
+
+Private project.
