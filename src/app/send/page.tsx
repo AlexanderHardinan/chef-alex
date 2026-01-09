@@ -1,4 +1,3 @@
-// src/app/send/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -77,16 +76,11 @@ function iconImg(type: "phone" | "email" | "website" | "facebook" | "instagram" 
   };
 
   const src = map[type];
-  // display:block prevents baseline gaps in Gmail
+
   return `<img src="${src}" width="18" height="18" alt="${type}" style="width:18px;height:18px;display:block;border:0;outline:none;text-decoration:none" />`;
 }
 
-function buildSignature(input: {
-  signatureEnabled: boolean;
-  facebookUrl: string;
-  instagramUrl: string;
-  linkedinUrl: string;
-}) {
+function buildSignature(input: { signatureEnabled: boolean; facebookUrl: string; instagramUrl: string; linkedinUrl: string }) {
   if (!input.signatureEnabled) return "";
 
   const fb = input.facebookUrl?.trim();
@@ -120,7 +114,7 @@ function buildSignature(input: {
     `
       : "";
 
-  // NOTE: email-safe layout (no CSS grid). Uses a simple 2-column table.
+  // Email-safe layout (no CSS grid). Uses a simple 2-column table.
   return `
     <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(0,0,0,.10)">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">
@@ -251,6 +245,7 @@ export default function SendPage() {
   const supabase = supabaseBrowser();
 
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
   // recipients
   const [recipientLists, setRecipientLists] = useState<RecipientList[]>([]);
@@ -258,9 +253,11 @@ export default function SendPage() {
   const [recInput, setRecInput] = useState("");
   const [selectedRecipientsIds, setSelectedRecipientsIds] = useState<string[]>([]);
 
-  // collapse + search (recipients list)
+  // collapse + search + pagination
   const [recListsCollapsed, setRecListsCollapsed] = useState(false);
   const [recSearch, setRecSearch] = useState("");
+  const REC_PAGE_SIZE = 5;
+  const [recPage, setRecPage] = useState(1);
 
   // templates (editor)
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -292,7 +289,6 @@ export default function SendPage() {
     [templates, selectedTemplateId]
   );
 
-  // filtered recipient lists
   const filteredRecipientLists = useMemo(() => {
     const q = recSearch.trim().toLowerCase();
     if (!q) return recipientLists;
@@ -303,6 +299,26 @@ export default function SendPage() {
       return label.includes(q) || emails.includes(q);
     });
   }, [recipientLists, recSearch]);
+
+  // Reset to page 1 when search or list changes
+  useEffect(() => {
+    setRecPage(1);
+  }, [recSearch, recipientLists.length]);
+
+  const recTotalPages = useMemo(() => {
+    const n = Math.ceil(filteredRecipientLists.length / REC_PAGE_SIZE);
+    return Math.max(1, n);
+  }, [filteredRecipientLists.length]);
+
+  const recPageSafe = useMemo(() => {
+    return Math.min(Math.max(1, recPage), recTotalPages);
+  }, [recPage, recTotalPages]);
+
+  const pagedRecipientLists = useMemo(() => {
+    const start = (recPageSafe - 1) * REC_PAGE_SIZE;
+    const end = start + REC_PAGE_SIZE;
+    return filteredRecipientLists.slice(start, end);
+  }, [filteredRecipientLists, recPageSafe]);
 
   const selectedRecipientLists = useMemo(() => {
     const set = new Set(selectedRecipientsIds);
@@ -392,9 +408,7 @@ export default function SendPage() {
   async function loadTemplates() {
     const { data, error } = await supabase
       .from("email_templates")
-      .select(
-        "id,name,subject,preheader,banner_url,cta_text,cta_url,signature_enabled,facebook_url,instagram_url,linkedin_url,body_json"
-      )
+      .select("id,name,subject,preheader,banner_url,cta_text,cta_url,signature_enabled,facebook_url,instagram_url,linkedin_url,body_json")
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
@@ -577,7 +591,6 @@ export default function SendPage() {
   async function removeUploadedAttachment(path: string) {
     const uid = await requireUserId();
 
-    // Safety: only allow deleting files inside the user's folder
     if (!path.startsWith(`${uid}/`)) {
       toast.error("Blocked: invalid attachment path.");
       return;
@@ -606,102 +619,148 @@ export default function SendPage() {
     toast.success("All attachments removed.");
   }
 
-  async function sendEmail() {
-    const uid = await requireUserId();
+  // returns true on success
+  async function sendEmail(): Promise<boolean> {
+    if (sending) return false;
 
-    const tpl = selectedTemplate;
-    if (!tpl) return toast.error("Select a template.");
+    try {
+      setSending(true);
 
-    if (selectedRecipientLists.length === 0) return toast.error("Select at least one recipient list.");
-    if (mergedRecipientEmails.length === 0) return toast.error("No recipient emails found in selected lists.");
+      const uid = await requireUserId();
 
-    const bodyBlocks = Array.isArray(tpl.body_json) ? tpl.body_json : [];
-    const textBody = bodyBlocks.find((b: any) => b?.type === "text")?.value ?? "";
+      const tpl = selectedTemplate;
+      if (!tpl) {
+        toast.error("Select a template.");
+        return false;
+      }
 
-    const html = buildHtml({
-      subject: tpl.subject || "Chef Alex",
-      preheader: tpl.preheader || "",
-      bannerUrl: tpl.banner_url || "",
-      bodyText: textBody || "",
-      ctaText: tpl.cta_text || "",
-      ctaUrl: tpl.cta_url || "",
-      signatureEnabled: tpl.signature_enabled ?? true,
-      facebookUrl: tpl.facebook_url || "",
-      instagramUrl: tpl.instagram_url || "",
-      linkedinUrl: tpl.linkedin_url || "",
-    });
+      if (selectedRecipientLists.length === 0) {
+        toast.error("Select at least one recipient list.");
+        return false;
+      }
 
-    const primaryRecipientsId = selectedRecipientLists[0]?.id ?? null;
+      if (mergedRecipientEmails.length === 0) {
+        toast.error("No recipient emails found in selected lists.");
+        return false;
+      }
 
-    const { data: emailRow, error: insErr } = await supabase
-      .from("emails")
-      .insert({
-        owner_uuid: uid,
-        status: "draft",
-        template_id: tpl.id,
-        recipients_id: primaryRecipientsId,
-        subject: tpl.subject || "",
-        rendered_html: html,
-        cta_text: tpl.cta_text || "",
-        cta_url: tpl.cta_url || "",
-      })
-      .select("id")
-      .single();
+      const bodyBlocks = Array.isArray(tpl.body_json) ? tpl.body_json : [];
+      const textBody = bodyBlocks.find((b: any) => b?.type === "text")?.value ?? "";
 
-    if (insErr) return toast.error(insErr.message);
+      const html = buildHtml({
+        subject: tpl.subject || "Chef Alex",
+        preheader: tpl.preheader || "",
+        bannerUrl: tpl.banner_url || "",
+        bodyText: textBody || "",
+        ctaText: tpl.cta_text || "",
+        ctaUrl: tpl.cta_url || "",
+        signatureEnabled: tpl.signature_enabled ?? true,
+        facebookUrl: tpl.facebook_url || "",
+        instagramUrl: tpl.instagram_url || "",
+        linkedinUrl: tpl.linkedin_url || "",
+      });
 
-    if (uploadedPaths.length > 0) {
-      const rows = uploadedPaths.map((p) => ({
-        owner_uuid: uid,
-        email_id: emailRow.id,
-        storage_bucket: "chef-alex-attachments",
-        storage_path: p,
-        file_name: p.split("/").pop() ?? "file",
-        content_type: "application/octet-stream",
-        file_size_bytes: 0,
-      }));
+      const primaryRecipientsId = selectedRecipientLists[0]?.id ?? null;
 
-      const { error: attErr } = await supabase.from("attachments").insert(rows);
-      if (attErr) return toast.error(attErr.message);
-    }
+      const { data: emailRow, error: insErr } = await supabase
+        .from("emails")
+        .insert({
+          owner_uuid: uid,
+          status: "draft",
+          template_id: tpl.id,
+          recipients_id: primaryRecipientsId,
+          subject: tpl.subject || "",
+          rendered_html: html,
+          cta_text: tpl.cta_text || "",
+          cta_url: tpl.cta_url || "",
+        })
+        .select("id")
+        .single();
 
-    const res = await fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        emailId: emailRow.id,
-        to: mergedRecipientEmails,
-        subject: tpl.subject,
-        html,
-        templateId: tpl.id,
-        recipientsId: primaryRecipientsId,
-        ctaText: tpl.cta_text,
-        ctaUrl: tpl.cta_url,
-      }),
-    });
+      if (insErr) {
+        toast.error(insErr.message);
+        return false;
+      }
 
-    const json = await res.json();
+      if (uploadedPaths.length > 0) {
+        const rows = uploadedPaths.map((p) => ({
+          owner_uuid: uid,
+          email_id: emailRow.id,
+          storage_bucket: "chef-alex-attachments",
+          storage_path: p,
+          file_name: p.split("/").pop() ?? "file",
+          content_type: "application/octet-stream",
+          file_size_bytes: 0,
+        }));
 
-    if (!res.ok) {
+        const { error: attErr } = await supabase.from("attachments").insert(rows);
+        if (attErr) {
+          toast.error(attErr.message);
+          return false;
+        }
+      }
+
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailId: emailRow.id,
+          to: mergedRecipientEmails,
+          subject: tpl.subject,
+          html,
+          templateId: tpl.id,
+          recipientsId: primaryRecipientsId,
+          ctaText: tpl.cta_text,
+          ctaUrl: tpl.cta_url,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        await supabase.from("email_logs").insert({
+          owner_uuid: uid,
+          email_id: emailRow.id,
+          action: "send_failed",
+          details: json,
+        });
+
+        toast.error(json?.error?.message ?? "Send failed.");
+        return false;
+      }
+
+      await supabase
+        .from("emails")
+        .update({ status: "sent", sent_at: new Date().toISOString() })
+        .eq("id", emailRow.id);
+
       await supabase.from("email_logs").insert({
         owner_uuid: uid,
         email_id: emailRow.id,
-        action: "send_failed",
-        details: json,
+        action: "sent_email",
+        details: { ...json, recipients: mergedRecipientEmails, recipient_list_ids: selectedRecipientsIds },
       });
-      return toast.error(json?.error?.message ?? "Send failed.");
+
+      toast.success(`Email sent to ${mergedRecipientEmails.length} recipient(s). Redirecting…`);
+      return true;
+    } catch (e: any) {
+      toast.error(e?.message ?? "Send failed.");
+      return false;
+    } finally {
+      setSending(false);
     }
+  }
 
-    await supabase.from("emails").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", emailRow.id);
+  async function sendThenGoDashboard() {
+    const ok = await sendEmail();
+    if (!ok) return;
 
-    await supabase.from("email_logs").insert({
-      owner_uuid: uid,
-      email_id: emailRow.id,
-      action: "sent_email",
-      details: { ...json, recipients: mergedRecipientEmails, recipient_list_ids: selectedRecipientsIds },
-    });
+    setPreviewOpen(false);
 
-    toast.success(`Email sent to ${mergedRecipientEmails.length} recipient(s).`);
+    // Small delay so user sees toast
+    window.setTimeout(() => {
+      window.location.href = "/dashboard";
+    }, 700);
   }
 
   if (loading) return null;
@@ -723,7 +782,7 @@ export default function SendPage() {
               <button
                 type="button"
                 onClick={() => setRecListsCollapsed((v) => !v)}
-                className="text-sm underline text-black/70 hover:text-black transition-colors"
+                className="text-sm underline text-black/70 hover:text-black"
               >
                 {recListsCollapsed ? "Expand lists" : "Collapse lists"}
               </button>
@@ -762,7 +821,7 @@ export default function SendPage() {
                 <label className="text-sm font-medium">Select Multiple Lists</label>
                 <div className="flex gap-2">
                   <button
-                    className="text-xs underline text-black/70 hover:text-black transition-colors"
+                    className="text-xs underline text-black/70 hover:text-black"
                     onClick={selectAllRecipients}
                     type="button"
                   >
@@ -770,7 +829,7 @@ export default function SendPage() {
                   </button>
                   <span className="text-black/20">|</span>
                   <button
-                    className="text-xs underline text-black/70 hover:text-black transition-colors"
+                    className="text-xs underline text-black/70 hover:text-black"
                     onClick={clearRecipientsSelection}
                     type="button"
                   >
@@ -779,79 +838,95 @@ export default function SendPage() {
                 </div>
               </div>
 
-              {/* Animated search */}
-              <div
-                className={[
-                  "transition-all duration-300 ease-out",
-                  recListsCollapsed ? "max-h-0 opacity-0 pointer-events-none" : "max-h-[200px] opacity-100",
-                ].join(" ")}
-              >
-                <div className="mt-3">
-                  <input
-                    value={recSearch}
-                    onChange={(e) => setRecSearch(e.target.value)}
-                    placeholder="Search recipient lists (label or email)…"
-                    className="w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-                  />
-                  <div className="mt-2 text-xs text-black/50">
-                    Showing: <span className="text-black">{filteredRecipientLists.length}</span> of{" "}
-                    <span className="text-black">{recipientLists.length}</span>
+              {!recListsCollapsed ? (
+                <>
+                  {/* Search */}
+                  <div className="mt-3">
+                    <input
+                      value={recSearch}
+                      onChange={(e) => setRecSearch(e.target.value)}
+                      placeholder="Search recipient lists (label or email)…"
+                      className="w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                    />
+                    <div className="mt-2 text-xs text-black/50">
+                      Showing: <span className="text-black">{filteredRecipientLists.length}</span> of{" "}
+                      <span className="text-black">{recipientLists.length}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Animated list */}
-              <div
-                className={[
-                  "transition-all duration-300 ease-out overflow-hidden",
-                  recListsCollapsed ? "max-h-0 opacity-0" : "max-h-[520px] opacity-100",
-                ].join(" ")}
-              >
-                <div className="mt-3 space-y-2">
-                  {filteredRecipientLists.length === 0 ? (
-                    <div className="text-sm text-black/60">No recipient lists found.</div>
-                  ) : (
-                    filteredRecipientLists.map((r) => {
-                      const checked = selectedRecipientsIds.includes(r.id);
-                      return (
-                        <label
-                          key={r.id}
-                          className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3"
-                        >
-                          <input
-                            type="checkbox"
-                            className="mt-1"
-                            checked={checked}
-                            onChange={() => toggleRecipientList(r.id)}
-                          />
-                          <div className="flex-1">
-                            <div className="font-medium">{r.label}</div>
-                            <div className="text-xs text-black/60">{r.emails.length} email(s)</div>
-                            <div className="mt-1 text-xs text-black/60 break-words">{r.emails.join(", ")}</div>
-                            <div className="mt-2">
-                              <button
-                                type="button"
-                                onClick={() => deleteRecipientList(r.id)}
-                                className="text-xs underline text-black/70 hover:text-black transition-colors"
-                              >
-                                Delete list
-                              </button>
+                  {/* Pagination controls */}
+                  <div className="mt-3 flex items-center justify-between rounded-2xl border border-black/10 bg-white/60 px-4 py-3">
+                    <div className="text-xs text-black/70">
+                      Page <span className="font-semibold text-black">{recPageSafe}</span> /{" "}
+                      <span className="font-semibold text-black">{recTotalPages}</span> •{" "}
+                      <span className="font-semibold text-black">{REC_PAGE_SIZE}</span> per page
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRecPage((p) => Math.max(1, p - 1))}
+                        disabled={recPageSafe <= 1}
+                        className="text-xs underline text-black/70 hover:text-black disabled:opacity-40 disabled:hover:text-black/70"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-black/20">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setRecPage((p) => Math.min(recTotalPages, p + 1))}
+                        disabled={recPageSafe >= recTotalPages}
+                        className="text-xs underline text-black/70 hover:text-black disabled:opacity-40 disabled:hover:text-black/70"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Recipient list (paged) */}
+                  <div className="mt-3 space-y-2">
+                    {pagedRecipientLists.length === 0 ? (
+                      <div className="text-sm text-black/60">No recipient lists found.</div>
+                    ) : (
+                      pagedRecipientLists.map((r) => {
+                        const checked = selectedRecipientsIds.includes(r.id);
+                        return (
+                          <label
+                            key={r.id}
+                            className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3"
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-1"
+                              checked={checked}
+                              onChange={() => toggleRecipientList(r.id)}
+                            />
+                            <div className="flex-1">
+                              <div className="font-medium">{r.label}</div>
+                              <div className="text-xs text-black/60">{r.emails.length} email(s)</div>
+                              <div className="mt-1 text-xs text-black/60 break-words">{(r.emails || []).join(", ")}</div>
+                              <div className="mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => deleteRecipientList(r.id)}
+                                  className="text-xs underline text-black/70 hover:text-black"
+                                >
+                                  Delete list
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              {/* Collapsed summary */}
-              {recListsCollapsed ? (
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              ) : (
                 <div className="mt-3 rounded-2xl border border-black/10 bg-white/60 px-4 py-3 text-sm text-black/70">
                   Lists are collapsed. Selected lists:{" "}
                   <span className="font-semibold text-black">{selectedRecipientLists.length}</span>
                 </div>
-              ) : null}
+              )}
 
               <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 px-4 py-3">
                 <div className="text-sm font-medium">Merged recipients</div>
@@ -1032,7 +1107,9 @@ export default function SendPage() {
               <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(true)}>
                 Preview Full Send
               </LiquidGlassButton>
-              <LiquidGlassButton onClick={sendEmail}>Send Email</LiquidGlassButton>
+              <LiquidGlassButton onClick={sendThenGoDashboard} className={sending ? "pointer-events-none opacity-60" : ""}>
+                {sending ? "Sending…" : "Send Email"}
+              </LiquidGlassButton>
             </div>
           </div>
 
@@ -1047,7 +1124,7 @@ export default function SendPage() {
                 <button
                   type="button"
                   onClick={clearAllUploadedAttachments}
-                  className="text-xs underline text-black/70 hover:text-black transition-colors"
+                  className="text-xs underline text-black/70 hover:text-black"
                 >
                   Remove all
                 </button>
@@ -1069,7 +1146,7 @@ export default function SendPage() {
                       <button
                         type="button"
                         onClick={() => removeUploadedAttachment(p)}
-                        className="text-xs underline text-black/70 hover:text-black transition-colors"
+                        className="text-xs underline text-black/70 hover:text-black"
                       >
                         Delete
                       </button>
@@ -1081,7 +1158,7 @@ export default function SendPage() {
           ) : null}
         </section>
 
-        {/* Preview Modal (includes recipients + email) */}
+        {/* Preview Modal */}
         {previewOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="w-full max-w-5xl rounded-3xl border border-black/10 bg-white/85 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
@@ -1122,7 +1199,12 @@ export default function SendPage() {
                     <LiquidGlassButton variant="ghost" onClick={() => setPreviewOpen(false)}>
                       Back
                     </LiquidGlassButton>
-                    <LiquidGlassButton onClick={sendEmail}>Send Now</LiquidGlassButton>
+                    <LiquidGlassButton
+                      onClick={sendThenGoDashboard}
+                      className={sending ? "pointer-events-none opacity-60" : ""}
+                    >
+                      {sending ? "Sending…" : "Send Now"}
+                    </LiquidGlassButton>
                   </div>
                 </div>
 
