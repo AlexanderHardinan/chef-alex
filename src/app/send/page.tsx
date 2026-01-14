@@ -1192,7 +1192,7 @@ export default function SendPage() {
 
                   <div className="mt-4 text-sm font-semibold">Sender</div>
                   <div className="mt-1 text-sm text-black/70">
-                    From: <span className="font-medium">Chef Alex &lt;no-reply@alexhardinan.com&gt;</span>
+                    From: <span className="font-medium">Chef Alex &lt;contact@alexhardinan.com&gt;</span>
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-3">
