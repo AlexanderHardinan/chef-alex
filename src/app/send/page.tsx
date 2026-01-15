@@ -277,8 +277,8 @@ export default function SendPage() {
   // selection
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
-  // attachments
-  const [files, setFiles] = useState<FileList | null>(null);
+  // attachments (UPDATED: allow multi-batch selecting)
+  const [files, setFiles] = useState<File[]>([]);
   const [uploadedPaths, setUploadedPaths] = useState<string[]>([]);
 
   // preview
@@ -408,7 +408,9 @@ export default function SendPage() {
   async function loadTemplates() {
     const { data, error } = await supabase
       .from("email_templates")
-      .select("id,name,subject,preheader,banner_url,cta_text,cta_url,signature_enabled,facebook_url,instagram_url,linkedin_url,body_json")
+      .select(
+        "id,name,subject,preheader,banner_url,cta_text,cta_url,signature_enabled,facebook_url,instagram_url,linkedin_url,body_json"
+      )
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
@@ -568,13 +570,43 @@ export default function SendPage() {
     await loadTemplates();
   }
 
+  // ===== Attachments scope updates start =====
+
+  function addSelectedFiles(next: File[]) {
+    if (next.length === 0) return;
+
+    // Dedup by (name + size + lastModified) so the same file doesn't get added repeatedly
+    const key = (f: File) => `${f.name}__${f.size}__${f.lastModified}`;
+    const existing = new Set(files.map(key));
+    const merged = [...files];
+
+    for (const f of next) {
+      const k = key(f);
+      if (!existing.has(k)) {
+        existing.add(k);
+        merged.push(f);
+      }
+    }
+
+    setFiles(merged);
+  }
+
+  function removeSelectedFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function clearSelectedFiles() {
+    setFiles([]);
+  }
+
   async function uploadAttachments() {
     const uid = await requireUserId();
+
     if (!files || files.length === 0) return toast.error("Choose files first.");
 
     const uploaded: string[] = [];
 
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
       const path = `${uid}/${crypto.randomUUID()}-${safeName}`;
 
@@ -584,7 +616,12 @@ export default function SendPage() {
       uploaded.push(path);
     }
 
-    setUploadedPaths(uploaded);
+    // Append, do not overwrite
+    setUploadedPaths((prev) => [...prev, ...uploaded]);
+
+    // Clear selected list after successful upload
+    setFiles([]);
+
     toast.success(`Uploaded ${uploaded.length} file(s).`);
   }
 
@@ -618,6 +655,8 @@ export default function SendPage() {
     setUploadedPaths([]);
     toast.success("All attachments removed.");
   }
+
+  // ===== Attachments scope updates end =====
 
   // returns true on success
   async function sendEmail(): Promise<boolean> {
@@ -1095,10 +1134,22 @@ export default function SendPage() {
 
         {/* Attachments + Send */}
         <section className="mt-4 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-6">
-          <div className="text-lg font-semibold">Attachments & Send</div>
+          <div className="text-lg font-semibold">Attachments &amp; Send</div>
 
           <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <input type="file" multiple onChange={(e) => setFiles(e.target.files)} className="w-full md:max-w-md" />
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const input = e.currentTarget;
+                const list = Array.from(input.files ?? []);
+                addSelectedFiles(list);
+
+                // allow selecting same file again
+                input.value = "";
+              }}
+              className="w-full md:max-w-md"
+            />
 
             <div className="flex flex-wrap gap-3">
               <LiquidGlassButton variant="ghost" onClick={uploadAttachments}>
@@ -1113,6 +1164,55 @@ export default function SendPage() {
             </div>
           </div>
 
+          {/* Selected files (before upload) */}
+          {files.length > 0 ? (
+            <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">Selected files (not uploaded yet)</div>
+                  <div className="text-xs text-black/60">{files.length} file(s)</div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={clearSelectedFiles}
+                  className="text-xs underline text-black/70 hover:text-black"
+                >
+                  Clear selected
+                </button>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {files.map((f, idx) => (
+                  <div
+                    key={`${f.name}__${f.size}__${f.lastModified}__${idx}`}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{f.name}</div>
+                      <div className="text-xs text-black/50 truncate">
+                        {(f.size / 1024).toFixed(1)} KB
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedFile(idx)}
+                      className="text-xs underline text-black/70 hover:text-black"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 text-xs text-black/60">
+                Tip: You can select more files again — it will append to this list.
+              </div>
+            </div>
+          ) : null}
+
+          {/* Uploaded list */}
           {uploadedPaths.length > 0 ? (
             <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 p-4">
               <div className="flex items-center justify-between gap-3">
