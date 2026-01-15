@@ -241,11 +241,49 @@ function buildHtml(input: {
   </div>`;
 }
 
+function GearIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path
+        d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M19.4 13.5c.05-.49.05-1.01 0-1.5l2.02-1.56a.6.6 0 0 0 .14-.76l-1.91-3.3a.6.6 0 0 0-.72-.27l-2.38.96a8.1 8.1 0 0 0-1.3-.75l-.36-2.53a.6.6 0 0 0-.6-.51H9.01a.6.6 0 0 0-.6.51l-.36 2.53c-.45.21-.88.46-1.3.75l-2.38-.96a.6.6 0 0 0-.72.27L1.74 9.68a.6.6 0 0 0 .14.76L3.9 12c-.05.49-.05 1.01 0 1.5l-2.02 1.56a.6.6 0 0 0-.14.76l1.91 3.3c.16.28.5.4.8.27l2.38-.96c.41.29.85.54 1.3.75l.36 2.53c.05.3.31.51.6.51h3.98c.29 0 .55-.21.6-.51l.36-2.53c.45-.21.88-.46 1.3-.75l2.38.96c.3.13.64.01.8-.27l1.91-3.3a.6.6 0 0 0-.14-.76L19.4 13.5Z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path
+        d="M20 6.5 9.5 17 4 11.5"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function SendPage() {
   const supabase = supabaseBrowser();
 
   const [loading, setLoading] = useState(true);
+
+  // sending overlay state (scope: UX only)
   const [sending, setSending] = useState(false);
+  const [sendOverlay, setSendOverlay] = useState<{ open: boolean; phase: "sending" | "success" }>({
+    open: false,
+    phase: "sending",
+  });
 
   // recipients
   const [recipientLists, setRecipientLists] = useState<RecipientList[]>([]);
@@ -277,7 +315,7 @@ export default function SendPage() {
   // selection
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
-  // attachments (UPDATED: allow multi-batch selecting)
+  // attachments (multi-batch selecting)
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedPaths, setUploadedPaths] = useState<string[]>([]);
 
@@ -658,12 +696,40 @@ export default function SendPage() {
 
   // ===== Attachments scope updates end =====
 
+  function showBigSentToast() {
+    toast.custom(
+      (t) => (
+        <div className="w-[340px] max-w-[92vw] rounded-3xl border border-black/10 bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.18)] p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl border border-black/10 bg-white flex items-center justify-center">
+              <CheckIcon className="h-7 w-7 text-black" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-base font-semibold">Sent</div>
+              <div className="text-sm text-black/70">Email delivered successfully.</div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => toast.dismiss(t)}
+              className="ml-auto text-xs underline text-black/60 hover:text-black"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: 1600 }
+    );
+  }
+
   // returns true on success
   async function sendEmail(): Promise<boolean> {
     if (sending) return false;
 
     try {
       setSending(true);
+      setSendOverlay({ open: true, phase: "sending" });
 
       const uid = await requireUserId();
 
@@ -780,32 +846,65 @@ export default function SendPage() {
         details: { ...json, recipients: mergedRecipientEmails, recipient_list_ids: selectedRecipientsIds },
       });
 
-      toast.success(`Email sent to ${mergedRecipientEmails.length} recipient(s). Redirecting…`);
       return true;
     } catch (e: any) {
       toast.error(e?.message ?? "Send failed.");
       return false;
     } finally {
       setSending(false);
+      // overlay is closed on fail path; on success it flips to success then redirects
     }
   }
 
   async function sendThenGoDashboard() {
     const ok = await sendEmail();
-    if (!ok) return;
+    if (!ok) {
+      setSendOverlay({ open: false, phase: "sending" });
+      return;
+    }
 
     setPreviewOpen(false);
 
-    // Small delay so user sees toast
+    // Success phase (overlay + big toast), then redirect
+    setSendOverlay({ open: true, phase: "success" });
+    showBigSentToast();
+
     window.setTimeout(() => {
       window.location.href = "/dashboard";
-    }, 700);
+    }, 900);
   }
 
   if (loading) return null;
 
   return (
     <main className="min-h-screen bg-white text-black px-6 py-8">
+      {/* Full-screen sending overlay */}
+      {sendOverlay.open ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white/75 backdrop-blur-xl">
+          <div className="w-full max-w-md mx-4 rounded-3xl border border-black/10 bg-white/90 shadow-[0_18px_60px_rgba(0,0,0,0.18)] p-6">
+            {sendOverlay.phase === "sending" ? (
+              <div className="flex flex-col items-center text-center">
+                <div className="h-16 w-16 rounded-3xl border border-black/10 bg-white flex items-center justify-center">
+                  <GearIcon className="h-9 w-9 animate-spin text-black" />
+                </div>
+                <div className="mt-4 text-xl font-semibold tracking-tight">Sending…</div>
+                <div className="mt-2 text-sm text-black/70">
+                  Please keep this window open while we deliver your email.
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-center">
+                <div className="h-16 w-16 rounded-3xl border border-black/10 bg-white flex items-center justify-center">
+                  <CheckIcon className="h-9 w-9 text-black" />
+                </div>
+                <div className="mt-4 text-xl font-semibold tracking-tight">Sent</div>
+                <div className="mt-2 text-sm text-black/70">Redirecting to dashboard…</div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-5xl">
         <BackToDashboard />
 
@@ -1173,11 +1272,7 @@ export default function SendPage() {
                   <div className="text-xs text-black/60">{files.length} file(s)</div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={clearSelectedFiles}
-                  className="text-xs underline text-black/70 hover:text-black"
-                >
+                <button type="button" onClick={clearSelectedFiles} className="text-xs underline text-black/70 hover:text-black">
                   Clear selected
                 </button>
               </div>
@@ -1190,9 +1285,7 @@ export default function SendPage() {
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{f.name}</div>
-                      <div className="text-xs text-black/50 truncate">
-                        {(f.size / 1024).toFixed(1)} KB
-                      </div>
+                      <div className="text-xs text-black/50 truncate">{(f.size / 1024).toFixed(1)} KB</div>
                     </div>
 
                     <button
@@ -1206,9 +1299,7 @@ export default function SendPage() {
                 ))}
               </div>
 
-              <div className="mt-3 text-xs text-black/60">
-                Tip: You can select more files again — it will append to this list.
-              </div>
+              <div className="mt-3 text-xs text-black/60">Tip: You can select more files again — it will append to this list.</div>
             </div>
           ) : null}
 
@@ -1221,11 +1312,7 @@ export default function SendPage() {
                   <div className="text-xs text-black/60">{uploadedPaths.length} file(s)</div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={clearAllUploadedAttachments}
-                  className="text-xs underline text-black/70 hover:text-black"
-                >
+                <button type="button" onClick={clearAllUploadedAttachments} className="text-xs underline text-black/70 hover:text-black">
                   Remove all
                 </button>
               </div>
