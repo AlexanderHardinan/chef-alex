@@ -1,3 +1,4 @@
+// src/app/api/send-email/route.ts
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
@@ -29,6 +30,13 @@ function supabaseAdmin() {
   return createClient(url, serviceKey, {
     auth: { persistSession: false },
   });
+}
+
+function extractEmail(fromValue: string) {
+  // Handles: "Chef Alex <contact@alexhardinan.com>" or "contact@alexhardinan.com"
+  const m = fromValue.match(/<([^>]+)>/);
+  const email = (m?.[1] ?? fromValue).trim();
+  return email;
 }
 
 export async function POST(req: Request) {
@@ -108,9 +116,15 @@ export async function POST(req: Request) {
       });
     }
 
+    // ✅ Privacy fix:
+    // Send to your own address (or the "from" mailbox) and put real recipients in BCC.
+    // This prevents recipients from seeing each other.
+    const primaryTo = extractEmail(from);
+
     const { data, error } = await resend.emails.send({
       from,
-      to: body.to,
+      to: [primaryTo],
+      bcc: body.to,
       subject: body.subject,
       html: body.html,
       ...(replyTo ? { replyTo } : {}),
